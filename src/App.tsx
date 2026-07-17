@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { MemberPanel } from './components/member/MemberPanel';
 import { PartyBoard } from './components/party/PartyBoard';
 import { useMembers } from './hooks/useMembers';
@@ -14,6 +18,16 @@ function App() {
 
   const [editableParties, setEditableParties] =
     useState<Party[]>([]);
+
+  const assignedMemberNames = useMemo(() => {
+    return new Set(
+      editableParties.flatMap((party) =>
+        party.slots
+          .map((memberName) => memberName.trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [editableParties]);
 
   const {
     members,
@@ -123,6 +137,72 @@ function App() {
     ]);
   }
 
+function handleDropMember(
+  memberName: string,
+  targetPartyIndex: number,
+  targetSlotIndex: number,
+): void {
+  setEditableParties((currentParties) => {
+    let sourcePartyIndex = -1;
+    let sourceSlotIndex = -1;
+
+    currentParties.forEach((party, partyIndex) => {
+      party.slots.forEach((currentMember, slotIndex) => {
+        if (currentMember === memberName) {
+          sourcePartyIndex = partyIndex;
+          sourceSlotIndex = slotIndex;
+        }
+      });
+    });
+
+    const targetMember =
+      currentParties[targetPartyIndex]?.slots[
+        targetSlotIndex
+      ] ?? '';
+
+    const updatedParties = currentParties.map(
+      (party) => ({
+        ...party,
+        slots: Array.from(
+          { length: 5 },
+          (_, slotIndex) =>
+            party.slots[slotIndex] ?? '',
+        ),
+      }),
+    );
+
+    if (
+      sourcePartyIndex !== -1 &&
+      sourceSlotIndex !== -1
+    ) {
+      updatedParties[sourcePartyIndex].slots[
+        sourceSlotIndex
+      ] = targetMember;
+    }
+
+    updatedParties[targetPartyIndex].slots[
+      targetSlotIndex
+    ] = memberName;
+
+    return updatedParties;
+  });
+}
+
+  function handleRemoveMemberFromParty(
+    memberName: string,
+  ): void {
+    setEditableParties((currentParties) =>
+      currentParties.map((party) => ({
+        ...party,
+        slots: party.slots.map((currentMember) =>
+          currentMember === memberName
+            ? ''
+            : currentMember,
+        ),
+      })),
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -188,6 +268,8 @@ function App() {
         <main className="workspace">
           <PartyBoard
             modeLabel={modeLabel}
+            members={members}
+            mode={mode}
             parties={editableParties}
             isLoading={isLoadingParties}
             errorMessage={partyErrorMessage}
@@ -196,11 +278,16 @@ function App() {
             onClearAll={handleClearAll}
             onClearParty={handleClearParty}
             onDeleteParty={handleDeleteParty}
+            onDropMember={handleDropMember}
           />
 
           <MemberPanel
             members={members}
             mode={mode}
+            assignedMemberNames={assignedMemberNames}
+            onRemoveMemberFromParty={
+              handleRemoveMemberFromParty
+            }
           />
         </main>
       )}

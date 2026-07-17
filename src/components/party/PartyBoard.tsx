@@ -1,7 +1,14 @@
+import type { DragEvent } from 'react';
 import type { Party } from '../../types/partyTypes';
+import type {
+  Member,
+  PartyMode,
+} from '../../types/member';
 
 interface PartyBoardProps {
   modeLabel: string;
+  members: Member[];
+  mode: PartyMode;
   parties: Party[];
   isLoading: boolean;
   errorMessage: string;
@@ -10,6 +17,47 @@ interface PartyBoardProps {
   onClearAll: () => void;
   onClearParty: (partyIndex: number) => void;
   onDeleteParty: (partyIndex: number) => void;
+  onDropMember: (
+    memberName: string,
+    partyIndex: number,
+    slotIndex: number,
+  ) => void;
+}
+
+interface DraggedPartyMember {
+  memberName: string;
+  sourcePartyIndex: number;
+  sourceSlotIndex: number;
+}
+
+function handlePartyMemberDragStart(
+  event: DragEvent<HTMLDivElement>,
+  memberName: string,
+  partyIndex: number,
+  slotIndex: number,
+): void {
+  const payload: DraggedPartyMember = {
+    memberName,
+    sourcePartyIndex: partyIndex,
+    sourceSlotIndex: slotIndex,
+  };
+
+  event.dataTransfer.effectAllowed = 'move';
+
+  event.dataTransfer.setData(
+    'application/x-ezmoo-party-member',
+    JSON.stringify(payload),
+  );
+
+  event.dataTransfer.setData(
+    'application/x-ezmoo-member',
+    memberName,
+  );
+
+  event.dataTransfer.setData(
+    'text/plain',
+    memberName,
+  );
 }
 
 function normalizeSlots(slots: string[]): string[] {
@@ -23,8 +71,28 @@ function countMembers(party: Party): number {
   return normalizeSlots(party.slots).filter(Boolean).length;
 }
 
+function getMemberClass(
+  memberName: string,
+  members: Member[],
+  mode: PartyMode,
+): string {
+  const member = members.find(
+    (item) => item.ign === memberName,
+  );
+
+  if (!member) {
+    return '';
+  }
+
+  return mode === 'guildLeague'
+    ? member.guildLeagueClass
+    : member.overrunClass;
+}
+
 export function PartyBoard({
   modeLabel,
+  members,
+  mode,
   parties,
   isLoading,
   errorMessage,
@@ -33,7 +101,40 @@ export function PartyBoard({
   onClearAll,
   onClearParty,
   onDeleteParty,
+  onDropMember,
 }: PartyBoardProps) {
+  function handleDragOver(
+    event: DragEvent<HTMLDivElement>,
+  ): void {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleDrop(
+    event: DragEvent<HTMLDivElement>,
+    partyIndex: number,
+    slotIndex: number,
+  ): void {
+    event.preventDefault();
+
+    const memberName =
+      event.dataTransfer.getData(
+        'application/x-ezmoo-member',
+      ) || event.dataTransfer.getData('text/plain');
+
+    const normalizedName = memberName.trim();
+
+    if (!normalizedName) {
+      return;
+    }
+
+    onDropMember(
+      normalizedName,
+      partyIndex,
+      slotIndex,
+    );
+  }
+
   return (
     <section className="party-board">
       <div className="party-toolbar">
@@ -99,9 +200,7 @@ export function PartyBoard({
           <div className="empty-party-board">
             <strong>ยังไม่มีปาร์ตี้</strong>
 
-            <p>
-              กด “เพิ่มปาร์ตี้” เพื่อสร้างปาร์ตี้แรก
-            </p>
+            <p>กด “เพิ่มปาร์ตี้” เพื่อสร้างปาร์ตี้แรก</p>
 
             <button
               type="button"
@@ -184,14 +283,45 @@ export function PartyBoard({
                               : 'party-slot empty'
                           }
                           key={slotIndex}
+                          draggable={Boolean(memberName)}
+                          onDragStart={(event) => {
+                            if (memberName) {
+                              handlePartyMemberDragStart(
+                                event,
+                                memberName,
+                                partyIndex,
+                                slotIndex,
+                              );
+                            }
+                          }}
+                          onDragOver={handleDragOver}
+                          onDrop={(event) =>
+                            handleDrop(
+                              event,
+                              partyIndex,
+                              slotIndex,
+                            )
+                          }
                         >
                           <span className="slot-label">
                             Slot {slotIndex + 1}
                           </span>
 
-                          <strong>
-                            {memberName || 'Empty'}
-                          </strong>
+                              {memberName ? (
+                                <>
+                                  <span className="party-member-class">
+                                    {getMemberClass(
+                                      memberName,
+                                      members,
+                                      mode,
+                                    ) || 'ไม่ระบุอาชีพ'}
+                                  </span>
+
+                                  <strong>{memberName}</strong>
+                                </>
+                              ) : (
+                                <strong>Empty</strong>
+                              )}
                         </div>
                       ),
                     )}

@@ -5,6 +5,8 @@ import { MemberList } from './MemberList';
 interface MemberPanelProps {
   members: Member[];
   mode: PartyMode;
+  assignedMemberNames: Set<string>;
+  onRemoveMemberFromParty: (memberName: string) => void;
 }
 
 function getMemberClass(
@@ -19,6 +21,8 @@ function getMemberClass(
 export function MemberPanel({
   members,
   mode,
+  assignedMemberNames,
+  onRemoveMemberFromParty,
 }: MemberPanelProps) {
   const [searchText, setSearchText] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -62,7 +66,27 @@ export function MemberPanel({
   }, [members, mode, searchText, selectedClass]);
 
   return (
-    <aside className="member-panel">
+    <aside
+      className="member-panel"
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+
+        const memberName =
+          event.dataTransfer.getData(
+            'application/x-ezmoo-member',
+          ) || event.dataTransfer.getData('text/plain');
+
+        const normalizedName = memberName.trim();
+
+        if (normalizedName) {
+          onRemoveMemberFromParty(normalizedName);
+        }
+      }}
+    >
       <div className="panel-heading">
         <div>
           <h2>Member List</h2>
@@ -101,6 +125,7 @@ export function MemberPanel({
       <MemberList
         members={filteredMembers}
         mode={mode}
+        assignedMemberNames={assignedMemberNames}
       />
     </aside>
   );
