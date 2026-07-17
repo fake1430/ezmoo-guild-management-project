@@ -1228,3 +1228,50 @@ button:disabled {
   border-color: #93c5fd;
   background: #eff6ff;
 }
+.compact-party-slot.member-drag-target {
+  border-color: #2563eb;
+  background: #dbeafe;
+  box-shadow:
+    0 0 0 2px rgb(59 130 246 / 20%),
+    0 6px 14px rgb(37 99 235 / 14%);
+  transform: scale(1.03);
+}
+
+.compact-party-slot.member-drag-target.empty {
+  border-style: solid;
+}
+
+.compact-party-slot.member-drag-target::after {
+  content: "วางตรงนี้";
+  position: absolute;
+  inset: auto 4px 4px;
+  color: #2563eb;
+  font-size: 8px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.compact-party-slot.member-drag-target {
+  border-color: #2563eb;
+  background: #dbeafe;
+  box-shadow:
+    0 0 0 2px rgb(59 130 246 / 20%),
+    0 6px 14px rgb(37 99 235 / 14%);
+  transform: scale(1.03);
+}
+
+.compact-party-slot.member-drag-target.empty {
+  border-style: solid;
+}
+
+.compact-party-slot.member-drag-target::after {
+  content: "วางตรงนี้";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  color: #2563eb;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}

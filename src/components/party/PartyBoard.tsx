@@ -100,10 +100,15 @@ export function PartyBoard({
 
   const [isDraggingParty, setIsDraggingParty] =
     useState(false);
+    
+  const [dragTargetSlot, setDragTargetSlot] = useState<{
+  partyIndex: number;
+  slotIndex: number;
+} | null>(null);
 
   const [dragTargetParty, setDragTargetParty] =
     useState<number | null>(null);
-
+    
   const [isCapturing, setIsCapturing] =
     useState(false);
 
@@ -126,10 +131,13 @@ export function PartyBoard({
       'text/plain',
       memberName,
     );
+    setDragTargetSlot(null);
   }
 
   function handleMemberDragOver(
     event: DragEvent<HTMLDivElement>,
+    partyIndex: number,
+    slotIndex: number,
   ): void {
     const draggingWholeParty =
       event.dataTransfer.types.includes(
@@ -143,7 +151,38 @@ export function PartyBoard({
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
+
+    setDragTargetSlot({
+      partyIndex,
+      slotIndex,
+    });
   }
+
+function handleMemberDragLeave(
+  event: DragEvent<HTMLDivElement>,
+  partyIndex: number,
+  slotIndex: number,
+): void {
+  const nextElement = event.relatedTarget;
+
+  if (
+    nextElement instanceof Node &&
+    event.currentTarget.contains(nextElement)
+  ) {
+    return;
+  }
+
+  setDragTargetSlot((currentTarget) => {
+    if (
+      currentTarget?.partyIndex === partyIndex &&
+      currentTarget.slotIndex === slotIndex
+    ) {
+      return null;
+    }
+
+    return currentTarget;
+  });
+}
 
   function handleMemberDrop(
     event: DragEvent<HTMLDivElement>,
@@ -161,6 +200,7 @@ export function PartyBoard({
 
     event.preventDefault();
     event.stopPropagation();
+    setDragTargetSlot(null);
 
     const memberName =
       event.dataTransfer.getData(
@@ -195,6 +235,7 @@ export function PartyBoard({
 
     setDragTargetParty(null);
     setIsDraggingParty(true);
+    setDragTargetSlot(null);
   }
 
   function handlePartyDragOver(
@@ -483,11 +524,16 @@ export function PartyBoard({
 
                         return (
                           <div
-                            className={
-                              memberName
-                                ? 'compact-party-slot occupied'
-                                : 'compact-party-slot empty'
-                            }
+                            className={[
+                              'compact-party-slot',
+                              memberName ? 'occupied' : 'empty',
+                              dragTargetSlot?.partyIndex === actualPartyIndex &&
+                              dragTargetSlot.slotIndex === slotIndex
+                                ? 'member-drag-target'
+                                : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
                             key={slotIndex}
                             draggable={Boolean(
                               memberName,
@@ -502,8 +548,22 @@ export function PartyBoard({
                                 );
                               }
                             }}
-                            onDragOver={
-                              handleMemberDragOver
+                            onDragEnd={() => {
+                              setDragTargetSlot(null);
+                            }}
+                            onDragOver={(event) =>
+                              handleMemberDragOver(
+                                event,
+                                actualPartyIndex,
+                                slotIndex,
+                              )
+                            }
+                            onDragLeave={(event) =>
+                              handleMemberDragLeave(
+                                event,
+                                actualPartyIndex,
+                                slotIndex,
+                              )
                             }
                             onDrop={(event) =>
                               handleMemberDrop(
