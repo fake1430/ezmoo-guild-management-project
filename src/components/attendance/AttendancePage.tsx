@@ -158,6 +158,9 @@ export function AttendancePage({
     setIsBulkMenuOpen,
   ] = useState(false);
 
+  const [searchText, setSearchText] =
+  useState('');
+
   const {
     attendanceMembers,
     isLoading,
@@ -301,6 +304,29 @@ export function AttendancePage({
         },
       );
     }, [attendanceMembers]);
+
+    const filteredAttendanceMembers =
+  useMemo(() => {
+    const keyword =
+      searchText.trim().toLowerCase();
+
+    if (!keyword) {
+      return sortedAttendanceMembers;
+    }
+
+    return sortedAttendanceMembers.filter(
+      (member) =>
+        member.ign
+          .toLowerCase()
+          .includes(keyword) ||
+        member.className
+          .toLowerCase()
+          .includes(keyword),
+    );
+  }, [
+    sortedAttendanceMembers,
+    searchText,
+  ]);
 
   const hasAttendanceData =
     attendanceMembers.some(
@@ -793,6 +819,17 @@ export function AttendancePage({
         </div>
       )}
 
+      <section className="attendance-search">
+  <input
+    type="text"
+    placeholder="🔍 ค้นหา IGN หรือ Class..."
+    value={searchText}
+    onChange={(event) =>
+      setSearchText(event.target.value)
+    }
+  />
+</section>
+
       <section className="attendance-summary-grid">
         <article className="attendance-summary-card present">
           <span>มาวอ</span>
@@ -876,13 +913,18 @@ export function AttendancePage({
           0 && (
           <section className="attendance-member-list">
             <header className="attendance-table-header">
+            {filteredAttendanceMembers.length === 0 && (
+                <div className="attendance-status">
+                    ไม่พบสมาชิกที่ค้นหา
+                </div>
+                )}
               <span>สมาชิก</span>
               <span>สถานะวอ</span>
               <span>Discord</span>
               <span>หมายเหตุ</span>
             </header>
 
-            {sortedAttendanceMembers.map(
+            {filteredAttendanceMembers.map(
               (member) => {
                 const displayedLeaveCount =
                   member.monthlyLeaveCount +
