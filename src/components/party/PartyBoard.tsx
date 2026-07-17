@@ -5,7 +5,10 @@ import {
   type MouseEvent,
 } from 'react';
 import { toBlob } from 'html-to-image';
-import type { Member, PartyMode } from '../../types/member';
+import type {
+  Member,
+  PartyMode,
+} from '../../types/member';
 import type { Party } from '../../types/partyTypes';
 import { getClassColor } from '../../constants/classColors';
 
@@ -22,9 +25,9 @@ interface PartyBoardProps {
   onAddParty: () => void;
   onClearAll: () => void;
   onRemoveMember: (
-  partyIndex: number,
-  slotIndex: number,
-) => void;
+    partyIndex: number,
+    slotIndex: number,
+  ) => void;
   onClearParty: (partyIndex: number) => void;
   onDeleteParty: (partyIndex: number) => void;
   onDropMember: (
@@ -61,7 +64,8 @@ function getMemberClass(
   mode: PartyMode,
 ): string {
   const member = members.find(
-    (currentMember) => currentMember.ign === memberName,
+    (currentMember) =>
+      currentMember.ign === memberName,
   );
 
   if (!member) {
@@ -85,22 +89,26 @@ export function PartyBoard({
   isSaving,
   onAddParty,
   onClearAll,
+  onRemoveMember,
   onClearParty,
   onDeleteParty,
   onDropMember,
   onSwapParties,
-  onRemoveMember,
 }: PartyBoardProps) {
+  const captureAreaRef =
+    useRef<HTMLDivElement | null>(null);
+
   const [isDraggingParty, setIsDraggingParty] =
     useState(false);
-  const captureAreaRef =
-  useRef<HTMLDivElement | null>(null);
+
+  const [dragTargetParty, setDragTargetParty] =
+    useState<number | null>(null);
 
   const [isCapturing, setIsCapturing] =
-  useState(false);
-  
+    useState(false);
+
   const [copied, setCopied] =
-  useState(false);
+    useState(false);
 
   function handleMemberDragStart(
     event: DragEvent<HTMLDivElement>,
@@ -119,19 +127,16 @@ export function PartyBoard({
       memberName,
     );
   }
-  
-  const [dragTargetParty, setDragTargetParty] =
-  useState<number | null>(null);
 
   function handleMemberDragOver(
     event: DragEvent<HTMLDivElement>,
   ): void {
-    const hasMemberData =
+    const draggingWholeParty =
       event.dataTransfer.types.includes(
-        'application/x-ezmoo-member',
+        'application/x-ezmoo-party',
       );
 
-    if (!hasMemberData) {
+    if (draggingWholeParty) {
       return;
     }
 
@@ -145,19 +150,29 @@ export function PartyBoard({
     partyIndex: number,
     slotIndex: number,
   ): void {
+    const draggingWholeParty =
+      event.dataTransfer.types.includes(
+        'application/x-ezmoo-party',
+      );
+
+    if (draggingWholeParty) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
     const memberName =
       event.dataTransfer.getData(
         'application/x-ezmoo-member',
-      ) || event.dataTransfer.getData('text/plain');
+      ) ||
+      event.dataTransfer.getData('text/plain');
 
     const normalizedName = memberName.trim();
 
     if (!normalizedName) {
       return;
     }
-
-    event.preventDefault();
-    event.stopPropagation();
 
     onDropMember(
       normalizedName,
@@ -166,95 +181,97 @@ export function PartyBoard({
     );
   }
 
-function handlePartyDragStart(
-  event: DragEvent<HTMLDivElement>,
-  partyIndex: number,
-): void {
-  event.stopPropagation();
-  event.dataTransfer.effectAllowed = 'move';
+  function handlePartyDragStart(
+    event: DragEvent<HTMLDivElement>,
+    partyIndex: number,
+  ): void {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = 'move';
 
-  event.dataTransfer.setData(
-    'application/x-ezmoo-party',
-    String(partyIndex),
-  );
-
-  setDragTargetParty(null);
-  setIsDraggingParty(true);
-}
-
-function handlePartyDragOver(
-  event: DragEvent<HTMLElement>,
-  targetPartyIndex?: number,
-): void {
-  const hasPartyData =
-    event.dataTransfer.types.includes(
+    event.dataTransfer.setData(
       'application/x-ezmoo-party',
+      String(partyIndex),
     );
 
-  if (!hasPartyData) {
-    return;
+    setDragTargetParty(null);
+    setIsDraggingParty(true);
   }
 
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'move';
+  function handlePartyDragOver(
+    event: DragEvent<HTMLElement>,
+    targetPartyIndex?: number,
+  ): void {
+    const hasPartyData =
+      event.dataTransfer.types.includes(
+        'application/x-ezmoo-party',
+      );
 
-  if (targetPartyIndex !== undefined) {
-    setDragTargetParty(targetPartyIndex);
+    if (!hasPartyData) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+
+    if (targetPartyIndex !== undefined) {
+      setDragTargetParty(targetPartyIndex);
+    }
   }
-}
-function handlePartyDragLeave(
-  event: DragEvent<HTMLElement>,
-  partyIndex: number,
-): void {
-  const nextElement = event.relatedTarget;
 
-  if (
-    nextElement instanceof Node &&
-    event.currentTarget.contains(nextElement)
-  ) {
-    return;
-  }
+  function handlePartyDragLeave(
+    event: DragEvent<HTMLElement>,
+    partyIndex: number,
+  ): void {
+    const nextElement = event.relatedTarget;
 
-  setDragTargetParty((currentTarget) =>
-    currentTarget === partyIndex
-      ? null
-      : currentTarget,
-  );
-}
+    if (
+      nextElement instanceof Node &&
+      event.currentTarget.contains(nextElement)
+    ) {
+      return;
+    }
 
-function handlePartyDrop(
-  event: DragEvent<HTMLElement>,
-  targetPartyIndex: number,
-): void {
-  const sourceIndexText =
-    event.dataTransfer.getData(
-      'application/x-ezmoo-party',
+    setDragTargetParty((currentTarget) =>
+      currentTarget === partyIndex
+        ? null
+        : currentTarget,
     );
-
-  if (!sourceIndexText) {
-    return;
   }
 
-  event.preventDefault();
-  event.stopPropagation();
+  function handlePartyDrop(
+    event: DragEvent<HTMLElement>,
+    targetPartyIndex: number,
+  ): void {
+    const sourceIndexText =
+      event.dataTransfer.getData(
+        'application/x-ezmoo-party',
+      );
 
-  const sourcePartyIndex = Number(sourceIndexText);
+    if (!sourceIndexText) {
+      return;
+    }
 
-  setDragTargetParty(null);
-  setIsDraggingParty(false);
+    event.preventDefault();
+    event.stopPropagation();
 
-  if (
-    Number.isNaN(sourcePartyIndex) ||
-    sourcePartyIndex === targetPartyIndex
-  ) {
-    return;
+    const sourcePartyIndex =
+      Number(sourceIndexText);
+
+    setDragTargetParty(null);
+    setIsDraggingParty(false);
+
+    if (
+      Number.isNaN(sourcePartyIndex) ||
+      sourcePartyIndex === targetPartyIndex
+    ) {
+      return;
+    }
+
+    onSwapParties(
+      sourcePartyIndex,
+      targetPartyIndex,
+    );
   }
-
-  onSwapParties(
-    sourcePartyIndex,
-    targetPartyIndex,
-  );
-}
 
   function handleDeleteDrop(
     event: DragEvent<HTMLDivElement>,
@@ -269,14 +286,15 @@ function handlePartyDrop(
     }
 
     event.preventDefault();
+    event.stopPropagation();
 
-    const sourcePartyIndex = Number(sourceIndexText);
+    const sourcePartyIndex =
+      Number(sourceIndexText);
 
     if (!Number.isNaN(sourcePartyIndex)) {
       onDeleteParty(sourcePartyIndex);
     }
 
-    setIsDraggingParty(false);
     setDragTargetParty(null);
     setIsDraggingParty(false);
   }
@@ -288,65 +306,63 @@ function handlePartyDrop(
     event.preventDefault();
     onClearParty(partyIndex);
   }
+
   async function handleCopyRaidImage(): Promise<void> {
-  const captureElement = captureAreaRef.current;
+    const captureElement = captureAreaRef.current;
 
-  if (!captureElement) {
-    window.alert('ไม่พบพื้นที่สำหรับแคปภาพ');
-    return;
-  }
-
-  try {
-    setIsCapturing(true);
-
-    const blob = await toBlob(captureElement, {
-      backgroundColor: '#f8fafc',
-      pixelRatio: 2,
-      cacheBust: true,
-    });
-
-    if (!blob) {
-      throw new Error('สร้างภาพไม่สำเร็จ');
+    if (!captureElement) {
+      return;
     }
 
-    if (
-      !navigator.clipboard ||
-      typeof ClipboardItem === 'undefined'
-    ) {
-      throw new Error(
-        'เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพ',
+    try {
+      setIsCapturing(true);
+
+      const blob = await toBlob(captureElement, {
+        backgroundColor: '#f8fafc',
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+
+      if (!blob) {
+        throw new Error('สร้างภาพไม่สำเร็จ');
+      }
+
+      if (
+        !navigator.clipboard ||
+        typeof ClipboardItem === 'undefined'
+      ) {
+        throw new Error(
+          'เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพ',
+        );
+      }
+
+      const pngBlob =
+        blob.type === 'image/png'
+          ? blob
+          : new Blob([blob], {
+              type: 'image/png',
+            });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': pngBlob,
+        }),
+      ]);
+
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error(
+        'ไม่สามารถคัดลอกรูปภาพได้',
+        error,
       );
+    } finally {
+      setIsCapturing(false);
     }
-
-    const pngBlob =
-      blob.type === 'image/png'
-        ? blob
-        : new Blob([blob], {
-            type: 'image/png',
-          });
-
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'image/png': pngBlob,
-          }),
-        ]);
-
-        setCopied(true);
-
-        setTimeout(() => {
-          setCopied(false);
-        }, 2000);
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'ไม่สามารถคัดลอกรูปภาพได้';
-
-    window.alert(message);
-  } finally {
-    setIsCapturing(false);
   }
-}
 
   function renderRaidColumn({
     title,
@@ -354,15 +370,18 @@ function handlePartyDrop(
     startIndex,
   }: RaidColumnProps) {
     const raidMemberCount = raidParties.reduce(
-      (total, party) => total + countMembers(party),
+      (total, party) =>
+        total + countMembers(party),
       0,
     );
 
     const canAddParty =
       parties.length < 16 &&
       (
-        (startIndex === 0 && parties.length < 8) ||
-        (startIndex === 8 && parties.length >= 8)
+        (startIndex === 0 &&
+          parties.length < 8) ||
+        (startIndex === 8 &&
+          parties.length >= 8)
       );
 
     return (
@@ -382,152 +401,171 @@ function handlePartyDrop(
         </header>
 
         <div className="compact-party-list">
-          {raidParties.map((party, localIndex) => {
-            const actualPartyIndex =
-              startIndex + localIndex;
+          {raidParties.map(
+            (party, localIndex) => {
+              const actualPartyIndex =
+                startIndex + localIndex;
 
-            const displayPartyNumber =
-              localIndex + 1;
+              const displayPartyNumber =
+                localIndex + 1;
 
-            const slots = normalizeSlots(party.slots);
+              const slots =
+                normalizeSlots(party.slots);
 
-            return (
-              <article
-                    className={
-                      dragTargetParty === actualPartyIndex
-                        ? 'compact-party-row drag-target'
-                        : 'compact-party-row'
-                    }
-                    key={`${title}-${actualPartyIndex}`}
-                    onDragOver={(event) =>
-                      handlePartyDragOver(
-                        event,
-                        actualPartyIndex,
-                      )
-                    }
-                    onDragLeave={(event) =>
-                      handlePartyDragLeave(
-                        event,
-                        actualPartyIndex,
-                      )
-                    }
-                    onDrop={(event) =>
-                      handlePartyDrop(
-                        event,
-                        actualPartyIndex,
-                      )
-                    }
-                  >
-                <div
-                  className="compact-party-number"
-                  draggable
-                  onDragStart={(event) =>
-                    handlePartyDragStart(
+              return (
+                <article
+                  className={
+                    dragTargetParty ===
+                    actualPartyIndex
+                      ? 'compact-party-row drag-target'
+                      : 'compact-party-row'
+                  }
+                  key={`${title}-${actualPartyIndex}`}
+                  onDragOver={(event) =>
+                    handlePartyDragOver(
                       event,
                       actualPartyIndex,
                     )
                   }
-                  onDragEnd={() => {
-                    setIsDraggingParty(false);
-                    setDragTargetParty(null);
-                  }}
-                  onContextMenu={(event) =>
-                    handleClearPartyContextMenu(
+                  onDragLeave={(event) =>
+                    handlePartyDragLeave(
                       event,
                       actualPartyIndex,
                     )
                   }
-                  title={
-                    'ลากเพื่อสลับปาร์ตี้\nคลิกขวาเพื่อล้างปาร์ตี้'
+                  onDrop={(event) =>
+                    handlePartyDrop(
+                      event,
+                      actualPartyIndex,
+                    )
                   }
                 >
-                  {displayPartyNumber}
-                </div>
+                  <div
+                    className="compact-party-number"
+                    draggable
+                    onDragStart={(event) =>
+                      handlePartyDragStart(
+                        event,
+                        actualPartyIndex,
+                      )
+                    }
+                    onDragEnd={() => {
+                      setIsDraggingParty(false);
+                      setDragTargetParty(null);
+                    }}
+                    onContextMenu={(event) =>
+                      handleClearPartyContextMenu(
+                        event,
+                        actualPartyIndex,
+                      )
+                    }
+                    title={
+                      'ลากเพื่อสลับปาร์ตี้\nคลิกขวาเพื่อล้างปาร์ตี้'
+                    }
+                  >
+                    {displayPartyNumber}
+                  </div>
 
-                <div className="compact-party-slots">
-                  {slots.map(
-                    (memberName, slotIndex) => {
-                      const className = memberName
-                        ? getMemberClass(
-                            memberName,
-                            members,
-                            mode,
-                          )
-                        : '';
-
-                      return (
-                        <div
-                          className={
-                            memberName
-                              ? 'compact-party-slot occupied'
-                              : 'compact-party-slot empty'
-                          }
-                          key={slotIndex}
-                          draggable={Boolean(memberName)}
-                          onDragStart={(event) => {
-                            if (memberName) {
-                              handleMemberDragStart(
-                                event,
+                  <div className="compact-party-slots">
+                    {slots.map(
+                      (
+                        memberName,
+                        slotIndex,
+                      ) => {
+                        const className =
+                          memberName
+                            ? getMemberClass(
                                 memberName,
-                              );
+                                members,
+                                mode,
+                              )
+                            : '';
+
+                        return (
+                          <div
+                            className={
+                              memberName
+                                ? 'compact-party-slot occupied'
+                                : 'compact-party-slot empty'
                             }
-                          }}
-                          onDragOver={(event) =>
-                            handlePartyDragOver(event)
-                          }
-                          onDrop={(event) =>
-                            handleMemberDrop(
+                            key={slotIndex}
+                            draggable={Boolean(
+                              memberName,
+                            )}
+                            onDragStart={(
                               event,
-                              actualPartyIndex,
-                              slotIndex,
-                            )
-                          }
-                        >
-                        {memberName ? (
-                          <>
-                            <button
-                              type="button"
-                              className="member-remove-button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-
-                                onRemoveMember(
-                                  actualPartyIndex,
-                                  slotIndex,
+                            ) => {
+                              if (memberName) {
+                                handleMemberDragStart(
+                                  event,
+                                  memberName,
                                 );
-                              }}
-                              aria-label={`นำ ${memberName} ออกจากปาร์ตี้`}
-                              title="นำสมาชิกออก"
-                            >
-                              ✕
-                            </button>
+                              }
+                            }}
+                            onDragOver={
+                              handleMemberDragOver
+                            }
+                            onDrop={(event) =>
+                              handleMemberDrop(
+                                event,
+                                actualPartyIndex,
+                                slotIndex,
+                              )
+                            }
+                          >
+                            {memberName ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="member-remove-button"
+                                  onClick={(
+                                    event,
+                                  ) => {
+                                    event.stopPropagation();
 
-                            <span
-                              className="party-member-class"
-                              style={{
-                                backgroundColor: getClassColor(
-                                  className || 'ไม่ระบุอาชีพ',
-                                ),
-                              }}
-                            >
-                              {className || 'ไม่ระบุอาชีพ'}
-                            </span>
+                                    onRemoveMember(
+                                      actualPartyIndex,
+                                      slotIndex,
+                                    );
+                                  }}
+                                  aria-label={`นำ ${memberName} ออกจากปาร์ตี้`}
+                                  title="นำสมาชิกออก"
+                                >
+                                  ✕
+                                </button>
 
-                            <strong>{memberName}</strong>
-                          </>
-                        ) : (
-                          <span className="compact-empty-text">
-                            Empty
-                          </span>
-                        )}
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              </article>
-            );
-          })}
+                                <span
+                                  className="party-member-class"
+                                  style={{
+                                    backgroundColor:
+                                      getClassColor(
+                                        className ||
+                                          'ไม่ระบุอาชีพ',
+                                      ),
+                                  }}
+                                >
+                                  {className ||
+                                    'ไม่ระบุอาชีพ'}
+                                </span>
+
+                                <strong>
+                                  {memberName}
+                                </strong>
+                              </>
+                            ) : (
+                              <span className="compact-empty-text">
+                                Empty
+                              </span>
+                            )}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                </article>
+              );
+            },
+          )}
 
           {canAddParty && (
             <button
@@ -535,7 +573,8 @@ function handlePartyDrop(
               className="compact-add-party"
               onClick={onAddParty}
             >
-              + เพิ่ม Party {raidParties.length + 1}
+              + เพิ่ม Party{' '}
+              {raidParties.length + 1}
             </button>
           )}
         </div>
@@ -543,8 +582,11 @@ function handlePartyDrop(
     );
   }
 
-  const raidAParties = parties.slice(0, 8);
-  const raidBParties = parties.slice(8, 16);
+  const raidAParties =
+    parties.slice(0, 8);
+
+  const raidBParties =
+    parties.slice(8, 16);
 
   return (
     <section className="party-board">
@@ -553,7 +595,8 @@ function handlePartyDrop(
           <h2>{modeLabel} 40 vs 40</h2>
 
           <p>
-            {parties.length} ปาร์ตี้ · รองรับสูงสุด 80 คน
+            {parties.length} ปาร์ตี้ ·
+            รองรับสูงสุด 80 คน
           </p>
         </div>
 
@@ -564,23 +607,33 @@ function handlePartyDrop(
             onClick={() => void onReload()}
             disabled={isLoading}
           >
-            {isLoading ? 'กำลังโหลด...' : 'โหลดใหม่'}
+            {isLoading
+              ? 'กำลังโหลด...'
+              : 'โหลดใหม่'}
           </button>
 
           <button
             type="button"
             className="toolbar-button save-button"
             onClick={() => void onSave()}
-            disabled={isLoading || isSaving}
+            disabled={
+              isLoading || isSaving
+            }
           >
-            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {isSaving
+              ? 'กำลังบันทึก...'
+              : 'บันทึก'}
           </button>
 
           <button
             type="button"
             className="toolbar-button capture-button"
-            onClick={() => void handleCopyRaidImage()}
-            disabled={isCapturing || isLoading}
+            onClick={() =>
+              void handleCopyRaidImage()
+            }
+            disabled={
+              isCapturing || isLoading
+            }
           >
             {isCapturing
               ? 'กำลังสร้างภาพ...'
@@ -621,7 +674,9 @@ function handlePartyDrop(
 
           <button
             type="button"
-            onClick={() => void onReload()}
+            onClick={() =>
+              void onReload()
+            }
           >
             ลองใหม่
           </button>
@@ -632,8 +687,14 @@ function handlePartyDrop(
         !errorMessage &&
         parties.length === 0 && (
           <div className="empty-party-board">
-            <strong>ยังไม่มีปาร์ตี้</strong>
-            <p>กด “เพิ่มปาร์ตี้” เพื่อเริ่มจัดทีม</p>
+            <strong>
+              ยังไม่มีปาร์ตี้
+            </strong>
+
+            <p>
+              กด “เพิ่มปาร์ตี้”
+              เพื่อเริ่มจัดทีม
+            </p>
 
             <button
               type="button"
@@ -648,10 +709,10 @@ function handlePartyDrop(
       {!isLoading &&
         !errorMessage &&
         parties.length > 0 && (
-            <div
-              ref={captureAreaRef}
-              className="compact-raid-grid capture-area"
-            >
+          <div
+            ref={captureAreaRef}
+            className="compact-raid-grid capture-area"
+          >
             {renderRaidColumn({
               title: 'Raid A',
               parties: raidAParties,
@@ -669,7 +730,9 @@ function handlePartyDrop(
       {isDraggingParty && (
         <div
           className="party-delete-drop-zone"
-          onDragOver={handlePartyDragOver}
+          onDragOver={(event) =>
+            handlePartyDragOver(event)
+          }
           onDrop={handleDeleteDrop}
         >
           🗑 ลากปาร์ตี้มาวางที่นี่เพื่อลบ
