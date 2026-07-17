@@ -10,23 +10,34 @@ import { useParties } from './hooks/useParties';
 import type { PartyMode } from './types/member';
 import type { Party } from './types/partyTypes';
 import { saveParties } from './services/googleApi';
+import { AttendancePage } from './components/attendance/AttendancePage';
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
+type AppPage = 'partyBuilder' | 'attendance';
+
 function App() {
+  const [currentPage, setCurrentPage] =
+    useState<AppPage>('partyBuilder');
+
   const [mode, setMode] =
     useState<PartyMode>('guildLeague');
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving] =
+    useState(false);
 
-  const [editableParties, setEditableParties] =
-    useState<Party[]>([]);
+  const [
+    editableParties,
+    setEditableParties,
+  ] = useState<Party[]>([]);
 
   const assignedMemberNames = useMemo(() => {
     return new Set(
       editableParties.flatMap((party) =>
         party.slots
-          .map((memberName) => memberName.trim())
+          .map((memberName) =>
+            memberName.trim(),
+          )
           .filter(Boolean),
       ),
     );
@@ -52,7 +63,8 @@ function App() {
         ...party,
         slots: Array.from(
           { length: 5 },
-          (_, index) => party.slots[index] ?? '',
+          (_, index) =>
+            party.slots[index] ?? '',
         ),
       })),
     );
@@ -64,24 +76,28 @@ function App() {
       : 'Overrun';
 
   function handleAddParty(): void {
-    setEditableParties((currentParties) => {
-      const highestPartyNumber = currentParties.reduce(
-        (highest, party, index) =>
-          Math.max(
-            highest,
-            party.party ?? index + 1,
-          ),
-        0,
-      );
+    setEditableParties(
+      (currentParties) => {
+        const highestPartyNumber =
+          currentParties.reduce(
+            (highest, party, index) =>
+              Math.max(
+                highest,
+                party.party ?? index + 1,
+              ),
+            0,
+          );
 
-      return [
-        ...currentParties,
-        {
-          party: highestPartyNumber + 1,
-          slots: [...EMPTY_SLOTS],
-        },
-      ];
-    });
+        return [
+          ...currentParties,
+          {
+            party:
+              highestPartyNumber + 1,
+            slots: [...EMPTY_SLOTS],
+          },
+        ];
+      },
+    );
   }
 
   function handleClearAll(): void {
@@ -97,39 +113,48 @@ function App() {
       return;
     }
 
-    setEditableParties((currentParties) =>
-      currentParties.map((party) => ({
-        ...party,
-        slots: [...EMPTY_SLOTS],
-      })),
+    setEditableParties(
+      (currentParties) =>
+        currentParties.map((party) => ({
+          ...party,
+          slots: [...EMPTY_SLOTS],
+        })),
     );
   }
 
   function handleClearParty(
     partyIndex: number,
   ): void {
-    setEditableParties((currentParties) =>
-      currentParties.map((party, index) =>
-        index === partyIndex
-          ? {
-              ...party,
-              slots: [...EMPTY_SLOTS],
-            }
-          : party,
-      ),
+    setEditableParties(
+      (currentParties) =>
+        currentParties.map(
+          (party, index) =>
+            index === partyIndex
+              ? {
+                  ...party,
+                  slots: [
+                    ...EMPTY_SLOTS,
+                  ],
+                }
+              : party,
+        ),
     );
   }
 
   function handleDeleteParty(
     partyIndex: number,
   ): void {
-    setEditableParties((currentParties) =>
-      currentParties
-        .filter((_, index) => index !== partyIndex)
-        .map((party, index) => ({
-          ...party,
-          party: index + 1,
-        })),
+    setEditableParties(
+      (currentParties) =>
+        currentParties
+          .filter(
+            (_, index) =>
+              index !== partyIndex,
+          )
+          .map((party, index) => ({
+            ...party,
+            party: index + 1,
+          })),
     );
   }
 
@@ -145,66 +170,84 @@ function App() {
     targetPartyIndex: number,
     targetSlotIndex: number,
   ): void {
-    setEditableParties((currentParties) => {
-      let sourcePartyIndex = -1;
-      let sourceSlotIndex = -1;
+    setEditableParties(
+      (currentParties) => {
+        let sourcePartyIndex = -1;
+        let sourceSlotIndex = -1;
 
-      currentParties.forEach((party, partyIndex) => {
-        party.slots.forEach(
-          (currentMember, slotIndex) => {
-            if (currentMember === memberName) {
-              sourcePartyIndex = partyIndex;
-              sourceSlotIndex = slotIndex;
-            }
+        currentParties.forEach(
+          (party, partyIndex) => {
+            party.slots.forEach(
+              (
+                currentMember,
+                slotIndex,
+              ) => {
+                if (
+                  currentMember ===
+                  memberName
+                ) {
+                  sourcePartyIndex =
+                    partyIndex;
+                  sourceSlotIndex =
+                    slotIndex;
+                }
+              },
+            );
           },
         );
-      });
 
-      const targetMember =
-        currentParties[targetPartyIndex]?.slots[
-          targetSlotIndex
-        ] ?? '';
+        const targetMember =
+          currentParties[
+            targetPartyIndex
+          ]?.slots[targetSlotIndex] ?? '';
 
-      const updatedParties = currentParties.map(
-        (party) => ({
-          ...party,
-          slots: Array.from(
-            { length: 5 },
-            (_, slotIndex) =>
-              party.slots[slotIndex] ?? '',
-          ),
-        }),
-      );
+        const updatedParties =
+          currentParties.map((party) => ({
+            ...party,
+            slots: Array.from(
+              { length: 5 },
+              (_, slotIndex) =>
+                party.slots[
+                  slotIndex
+                ] ?? '',
+            ),
+          }));
 
-      if (
-        sourcePartyIndex !== -1 &&
-        sourceSlotIndex !== -1
-      ) {
-        updatedParties[sourcePartyIndex].slots[
-          sourceSlotIndex
-        ] = targetMember;
-      }
+        if (
+          sourcePartyIndex !== -1 &&
+          sourceSlotIndex !== -1
+        ) {
+          updatedParties[
+            sourcePartyIndex
+          ].slots[sourceSlotIndex] =
+            targetMember;
+        }
 
-      updatedParties[targetPartyIndex].slots[
-        targetSlotIndex
-      ] = memberName;
+        updatedParties[
+          targetPartyIndex
+        ].slots[targetSlotIndex] =
+          memberName;
 
-      return updatedParties;
-    });
+        return updatedParties;
+      },
+    );
   }
 
   function handleRemoveMemberFromParty(
     memberName: string,
   ): void {
-    setEditableParties((currentParties) =>
-      currentParties.map((party) => ({
-        ...party,
-        slots: party.slots.map((currentMember) =>
-          currentMember === memberName
-            ? ''
-            : currentMember,
-        ),
-      })),
+    setEditableParties(
+      (currentParties) =>
+        currentParties.map((party) => ({
+          ...party,
+          slots: party.slots.map(
+            (currentMember) =>
+              currentMember ===
+              memberName
+                ? ''
+                : currentMember,
+          ),
+        })),
     );
   }
 
@@ -212,22 +255,29 @@ function App() {
     partyIndex: number,
     slotIndex: number,
   ): void {
-    setEditableParties((currentParties) =>
-      currentParties.map((party, index) => {
-        if (index !== partyIndex) {
-          return party;
-        }
+    setEditableParties(
+      (currentParties) =>
+        currentParties.map(
+          (party, index) => {
+            if (index !== partyIndex) {
+              return party;
+            }
 
-        return {
-          ...party,
-          slots: party.slots.map(
-            (memberName, currentSlotIndex) =>
-              currentSlotIndex === slotIndex
-                ? ''
-                : memberName,
-          ),
-        };
-      }),
+            return {
+              ...party,
+              slots: party.slots.map(
+                (
+                  memberName,
+                  currentSlotIndex,
+                ) =>
+                  currentSlotIndex ===
+                  slotIndex
+                    ? ''
+                    : memberName,
+              ),
+            };
+          },
+        ),
     );
   }
 
@@ -240,10 +290,11 @@ function App() {
           ? 'GuildLeague'
           : 'Overrun';
 
-      const message = await saveParties(
-        sheetName,
-        editableParties,
-      );
+      const message =
+        await saveParties(
+          sheetName,
+          editableParties,
+        );
 
       window.alert(message);
     } catch (error) {
@@ -262,135 +313,263 @@ function App() {
     sourcePartyIndex: number,
     targetPartyIndex: number,
   ): void {
-    if (sourcePartyIndex === targetPartyIndex) {
+    if (
+      sourcePartyIndex ===
+      targetPartyIndex
+    ) {
       return;
     }
 
-    setEditableParties((currentParties) => {
-      const sourceParty =
-        currentParties[sourcePartyIndex];
+    setEditableParties(
+      (currentParties) => {
+        const sourceParty =
+          currentParties[
+            sourcePartyIndex
+          ];
 
-      const targetParty =
-        currentParties[targetPartyIndex];
+        const targetParty =
+          currentParties[
+            targetPartyIndex
+          ];
 
-      if (!sourceParty || !targetParty) {
-        return currentParties;
-      }
-
-      return currentParties.map((party, index) => {
-        if (index === sourcePartyIndex) {
-          return {
-            ...party,
-            slots: [...targetParty.slots],
-          };
+        if (
+          !sourceParty ||
+          !targetParty
+        ) {
+          return currentParties;
         }
 
-        if (index === targetPartyIndex) {
-          return {
-            ...party,
-            slots: [...sourceParty.slots],
-          };
-        }
+        return currentParties.map(
+          (party, index) => {
+            if (
+              index === sourcePartyIndex
+            ) {
+              return {
+                ...party,
+                slots: [
+                  ...targetParty.slots,
+                ],
+              };
+            }
 
-        return party;
-      });
-    });
+            if (
+              index === targetPartyIndex
+            ) {
+              return {
+                ...party,
+                slots: [
+                  ...sourceParty.slots,
+                ],
+              };
+            }
+
+            return party;
+          },
+        );
+      },
+    );
   }
+
+  const isPartyPage =
+    currentPage === 'partyBuilder';
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <div className="brand-logo">EZ</div>
+          <div className="brand-logo">
+            EZ
+          </div>
 
           <div>
-            <h1>EZMOO Guild Manager</h1>
-            <p>Party management system</p>
+            <h1>
+              EZMOO Guild Manager
+            </h1>
+
+            <p>
+              Guild management system
+            </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          className="reload-button"
-          onClick={() => void handleReloadAll()}
-          disabled={
-            isLoadingMembers || isLoadingParties
-          }
-        >
-          {isLoadingMembers || isLoadingParties
-            ? 'กำลังโหลด...'
-            : 'โหลดข้อมูลใหม่'}
-        </button>
+        {isPartyPage && (
+          <button
+            type="button"
+            className="reload-button"
+            onClick={() =>
+              void handleReloadAll()
+            }
+            disabled={
+              isLoadingMembers ||
+              isLoadingParties
+            }
+          >
+            {isLoadingMembers ||
+            isLoadingParties
+              ? 'กำลังโหลด...'
+              : 'โหลดข้อมูลใหม่'}
+          </button>
+        )}
       </header>
 
-      <nav className="mode-selector">
+      <nav className="main-navigation">
         <button
           type="button"
           className={
-            mode === 'guildLeague' ? 'active' : ''
+            currentPage ===
+            'partyBuilder'
+              ? 'active'
+              : ''
           }
-          onClick={() => setMode('guildLeague')}
+          onClick={() =>
+            setCurrentPage(
+              'partyBuilder',
+            )
+          }
         >
-          Guild League
+          Party Builder
         </button>
 
         <button
           type="button"
           className={
-            mode === 'overrun' ? 'active' : ''
+            currentPage ===
+            'attendance'
+              ? 'active'
+              : ''
           }
-          onClick={() => setMode('overrun')}
+          onClick={() =>
+            setCurrentPage(
+              'attendance',
+            )
+          }
         >
-          Overrun
+          Attendance
         </button>
       </nav>
 
-      {memberErrorMessage && (
-        <div className="error-message">
-          <p>{memberErrorMessage}</p>
+      {isPartyPage && (
+        <>
+          <nav className="mode-selector">
+            <button
+              type="button"
+              className={
+                mode ===
+                'guildLeague'
+                  ? 'active'
+                  : ''
+              }
+              onClick={() =>
+                setMode(
+                  'guildLeague',
+                )
+              }
+            >
+              Guild League
+            </button>
 
-          <button
-            type="button"
-            onClick={() => void reloadMembers()}
-          >
-            ลองใหม่
-          </button>
-        </div>
+            <button
+              type="button"
+              className={
+                mode === 'overrun'
+                  ? 'active'
+                  : ''
+              }
+              onClick={() =>
+                setMode('overrun')
+              }
+            >
+              Overrun
+            </button>
+          </nav>
+
+          {memberErrorMessage && (
+            <div className="error-message">
+              <p>
+                {memberErrorMessage}
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void reloadMembers()
+                }
+              >
+                ลองใหม่
+              </button>
+            </div>
+          )}
+
+          {!memberErrorMessage && (
+            <main className="workspace">
+              <PartyBoard
+                modeLabel={modeLabel}
+                members={members}
+                mode={mode}
+                parties={
+                  editableParties
+                }
+                isLoading={
+                  isLoadingParties
+                }
+                errorMessage={
+                  partyErrorMessage
+                }
+                onReload={
+                  reloadParties
+                }
+                onSave={
+                  handleSaveParties
+                }
+                isSaving={isSaving}
+                onAddParty={
+                  handleAddParty
+                }
+                onClearAll={
+                  handleClearAll
+                }
+                onClearParty={
+                  handleClearParty
+                }
+                onDeleteParty={
+                  handleDeleteParty
+                }
+                onDropMember={
+                  handleDropMember
+                }
+                onSwapParties={
+                  handleSwapParties
+                }
+                onRemoveMember={
+                  handleRemoveMember
+                }
+              />
+
+              <MemberPanel
+                members={members}
+                mode={mode}
+                assignedMemberNames={
+                  assignedMemberNames
+                }
+                onRemoveMemberFromParty={
+                  handleRemoveMemberFromParty
+                }
+              />
+            </main>
+          )}
+        </>
       )}
 
-      {!memberErrorMessage && (
-        <main className="workspace">
-          <PartyBoard
-            modeLabel={modeLabel}
-            members={members}
-            mode={mode}
-            parties={editableParties}
-            isLoading={isLoadingParties}
-            errorMessage={partyErrorMessage}
-            onReload={reloadParties}
-            onSave={handleSaveParties}
-            isSaving={isSaving}
-            onAddParty={handleAddParty}
-            onClearAll={handleClearAll}
-            onClearParty={handleClearParty}
-            onDeleteParty={handleDeleteParty}
-            onDropMember={handleDropMember}
-            onSwapParties={handleSwapParties}
-            onRemoveMember={handleRemoveMember}
-          />
-
-          <MemberPanel
-            members={members}
-            mode={mode}
-            assignedMemberNames={assignedMemberNames}
-            onRemoveMemberFromParty={
-              handleRemoveMemberFromParty
-            }
-          />
-        </main>
-      )}
-    </div>
-  );
-}
+                {currentPage === 'attendance' && (
+                  <AttendancePage
+                    members={members}
+                    isLoadingMembers={isLoadingMembers}
+                    memberErrorMessage={memberErrorMessage}
+                    onReloadMembers={reloadMembers}
+                  />
+                )}
+                    </div>
+                  );
+                }
 
 export default App;

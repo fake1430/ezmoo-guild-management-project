@@ -1,5 +1,12 @@
 import type { Member } from '../types/member';
 import type { Party } from '../types/partyTypes';
+import type {
+  AttendanceEventType,
+  AttendanceRecord,
+  AttendanceSaveItem,
+  LeaveSummary,
+} from '../types/attendance';
+
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -41,9 +48,9 @@ async function request<T>(
 
   const result = (await response.json()) as ApiResponse<T>;
 
-if ('error' in result) {
-  throw new Error(result.error || 'เกิดข้อผิดพลาดจาก API');
-}
+  if ('error' in result) {
+    throw new Error(result.error || 'เกิดข้อผิดพลาดจาก API');
+  }
 
   return result.data;
 }
@@ -59,6 +66,7 @@ export function getParties(
     sheet: sheetName,
   });
 }
+
 export async function saveParties(
   sheetName: 'GuildLeague' | 'Overrun',
   parties: Party[],
@@ -72,6 +80,66 @@ export async function saveParties(
       action: 'saveParty',
       sheet: sheetName,
       parties,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result = (await response.json()) as
+    | {
+        success: true;
+        message: string;
+      }
+    | {
+        success: false;
+        error: string;
+      };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
+}
+
+export function getAttendance(
+  eventDate: string,
+  eventType: AttendanceEventType,
+): Promise<AttendanceRecord[]> {
+  return request<AttendanceRecord[]>('getAttendance', {
+    date: eventDate,
+    eventType,
+  });
+}
+
+export function getLeaveSummary(
+  month: string,
+  eventType: AttendanceEventType,
+): Promise<LeaveSummary> {
+  return request<LeaveSummary>('getLeaveSummary', {
+    month,
+    eventType,
+  });
+}
+export async function saveAttendance(
+  eventDate: string,
+  eventType: AttendanceEventType,
+  attendance: AttendanceSaveItem[],
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'saveAttendance',
+      date: eventDate,
+      eventType,
+      attendance,
     }),
   });
 
