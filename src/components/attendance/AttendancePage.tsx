@@ -33,6 +33,7 @@ function getTodayDate(): string {
   const today = new Date();
 
   const year = today.getFullYear();
+
   const month = String(
     today.getMonth() + 1,
   ).padStart(2, '0');
@@ -44,6 +45,90 @@ function getTodayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
+function isValidWarDate(
+  date: string,
+  eventType: AttendanceEventType,
+): boolean {
+  if (!date) {
+    return false;
+  }
+
+  const selectedDate = new Date(
+    `${date}T00:00:00`,
+  );
+
+  if (
+    Number.isNaN(
+      selectedDate.getTime(),
+    )
+  ) {
+    return false;
+  }
+
+  const day = selectedDate.getDay();
+
+  if (eventType === 'GuildLeague') {
+    return day === 2 || day === 4;
+  }
+
+  return day === 0;
+}
+
+function formatDateValue(
+  date: Date,
+): string {
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, '0');
+
+  const day = String(
+    date.getDate(),
+  ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getNextWarDate(
+  startDate: string,
+  eventType: AttendanceEventType,
+): string {
+  const date = new Date(
+    `${startDate}T00:00:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return getTodayDate();
+  }
+
+  for (
+    let daysToAdd = 0;
+    daysToAdd <= 7;
+    daysToAdd += 1
+  ) {
+    const candidate = new Date(date);
+
+    candidate.setDate(
+      date.getDate() + daysToAdd,
+    );
+
+    const candidateValue =
+      formatDateValue(candidate);
+
+    if (
+      isValidWarDate(
+        candidateValue,
+        eventType,
+      )
+    ) {
+      return candidateValue;
+    }
+  }
+
+  return startDate;
+}
+
 export function AttendancePage({
   members,
   isLoadingMembers,
@@ -51,12 +136,27 @@ export function AttendancePage({
   onReloadMembers,
 }: AttendancePageProps) {
   const [eventDate, setEventDate] =
-    useState(getTodayDate);
+    useState(() =>
+      getNextWarDate(
+        getTodayDate(),
+        'GuildLeague',
+      ),
+    );
 
   const [eventType, setEventType] =
     useState<AttendanceEventType>(
       'GuildLeague',
     );
+
+  const [
+    dateValidationMessage,
+    setDateValidationMessage,
+  ] = useState('');
+
+  const [
+    isBulkMenuOpen,
+    setIsBulkMenuOpen,
+  ] = useState(false);
 
   const {
     attendanceMembers,
@@ -64,6 +164,12 @@ export function AttendancePage({
     isSaving,
     errorMessage,
     saveMessage,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    clearAllAttendance,
+    bulkUpdateAttendance,
     reloadAttendance,
     setWarStatus,
     setDiscordStatus,
@@ -118,6 +224,95 @@ export function AttendancePage({
     [attendanceMembers],
   );
 
+  const sortedAttendanceMembers =
+    useMemo(() => {
+      return [
+        ...attendanceMembers,
+      ].sort(
+        (
+          firstMember,
+          secondMember,
+        ) => {
+          const firstIsChecked =
+            firstMember.warStatus !== '';
+
+          const secondIsChecked =
+            secondMember.warStatus !== '';
+
+          /*
+           * คนที่ยังไม่ได้เช็กอยู่ด้านบน
+           * คนที่เช็กแล้วอยู่ด้านล่าง
+           */
+          if (
+            firstIsChecked !==
+            secondIsChecked
+          ) {
+            return firstIsChecked
+              ? 1
+              : -1;
+          }
+
+          const firstClass =
+            firstMember.className.trim();
+
+          const secondClass =
+            secondMember.className.trim();
+
+          /*
+           * คนที่ไม่มีอาชีพอยู่ท้ายกลุ่ม
+           */
+          if (
+            !firstClass &&
+            secondClass
+          ) {
+            return 1;
+          }
+
+          if (
+            firstClass &&
+            !secondClass
+          ) {
+            return -1;
+          }
+
+          const classComparison =
+            firstClass.localeCompare(
+              secondClass,
+              'en',
+              {
+                sensitivity: 'base',
+              },
+            );
+
+          if (
+            classComparison !== 0
+          ) {
+            return classComparison;
+          }
+
+          return firstMember.ign.localeCompare(
+            secondMember.ign,
+            'en',
+            {
+              sensitivity: 'base',
+              numeric: true,
+            },
+          );
+        },
+      );
+    }, [attendanceMembers]);
+
+  const hasAttendanceData =
+    attendanceMembers.some(
+      (member) =>
+        member.warStatus !== '' ||
+        member.discordStatus !== '' ||
+        member.note.trim() !== '',
+    );
+
+  const isPageLoading =
+    isLoadingMembers || isLoading;
+
   function handleWarStatus(
     memberId: string,
     currentStatus: WarStatus,
@@ -150,8 +345,169 @@ export function AttendancePage({
     );
   }
 
-  const isPageLoading =
-    isLoadingMembers || isLoading;
+  function handleEventDateChange(
+    nextDate: string,
+  ): void {
+    if (
+      !isValidWarDate(
+        nextDate,
+        eventType,
+      )
+    ) {
+      setDateValidationMessage(
+        eventType === 'GuildLeague'
+          ? 'Guild League มีวอเฉพาะวันอังคารและวันพฤหัสบดี'
+          : 'Overrun มีวอเฉพาะวันอาทิตย์',
+      );
+
+      return;
+    }
+
+    setDateValidationMessage('');
+    setIsBulkMenuOpen(false);
+    setEventDate(nextDate);
+  }
+
+  function handleEventTypeChange(
+    nextEventType: AttendanceEventType,
+  ): void {
+    setEventType(nextEventType);
+    setDateValidationMessage('');
+    setIsBulkMenuOpen(false);
+
+    if (
+      !isValidWarDate(
+        eventDate,
+        nextEventType,
+      )
+    ) {
+      setEventDate(
+        getNextWarDate(
+          eventDate,
+          nextEventType,
+        ),
+      );
+    }
+  }
+
+  function handleClearAll(): void {
+    if (!hasAttendanceData) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'ต้องการล้างข้อมูลเช็กชื่อทั้งหมดหรือไม่?\n\nสถานะวอ, Discord และหมายเหตุจะถูกล้าง แต่จะยังไม่บันทึกจนกว่าจะกดปุ่มบันทึก',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsBulkMenuOpen(false);
+    clearAllAttendance();
+  }
+
+  function handleBulkWarStatus(
+    status: Exclude<
+      WarStatus,
+      ''
+    >,
+    label: string,
+  ): void {
+    const confirmed = window.confirm(
+      `ต้องการตั้งสถานะวอของสมาชิกทุกคนเป็น "${label}" หรือไม่?\n\nข้อมูลจะยังไม่ถูกบันทึกจนกว่าจะกดปุ่มบันทึก`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    bulkUpdateAttendance(
+      'warStatus',
+      status,
+    );
+
+    setIsBulkMenuOpen(false);
+  }
+
+  function handleBulkDiscordStatus(
+    status: Exclude<
+      DiscordStatus,
+      ''
+    >,
+    label: string,
+  ): void {
+    const confirmed = window.confirm(
+      `ต้องการตั้งสถานะ Discord ของสมาชิกทุกคนเป็น "${label}" หรือไม่?\n\nข้อมูลจะยังไม่ถูกบันทึกจนกว่าจะกดปุ่มบันทึก`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    bulkUpdateAttendance(
+      'discordStatus',
+      status,
+    );
+
+    setIsBulkMenuOpen(false);
+  }
+
+  function handleClearBulkWarStatus(): void {
+    const hasWarStatus =
+      attendanceMembers.some(
+        (member) =>
+          member.warStatus !== '',
+      );
+
+    if (!hasWarStatus) {
+      setIsBulkMenuOpen(false);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'ต้องการล้างสถานะวอของสมาชิกทุกคนหรือไม่?\n\nสถานะ Discord และหมายเหตุจะไม่ถูกล้าง',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    bulkUpdateAttendance(
+      'warStatus',
+      '',
+    );
+
+    setIsBulkMenuOpen(false);
+  }
+
+  function handleClearBulkDiscordStatus(): void {
+    const hasDiscordStatus =
+      attendanceMembers.some(
+        (member) =>
+          member.discordStatus !== '',
+      );
+
+    if (!hasDiscordStatus) {
+      setIsBulkMenuOpen(false);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'ต้องการล้างสถานะ Discord ของสมาชิกทุกคนหรือไม่?\n\nสถานะวอและหมายเหตุจะไม่ถูกล้าง',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    bulkUpdateAttendance(
+      'discordStatus',
+      '',
+    );
+
+    setIsBulkMenuOpen(false);
+  }
 
   if (memberErrorMessage) {
     return (
@@ -191,10 +547,168 @@ export function AttendancePage({
         <div className="attendance-toolbar-actions">
           <button
             type="button"
-            className="attendance-reload-button"
-            onClick={() =>
-              void reloadAttendance()
+            className="attendance-history-button"
+            onClick={undo}
+            disabled={
+              !canUndo ||
+              isPageLoading ||
+              isSaving
             }
+          >
+            ↶ Undo
+          </button>
+
+          <button
+            type="button"
+            className="attendance-history-button"
+            onClick={redo}
+            disabled={
+              !canRedo ||
+              isPageLoading ||
+              isSaving
+            }
+          >
+            ↷ Redo
+          </button>
+
+          <div className="attendance-bulk">
+            <button
+              type="button"
+              className="attendance-history-button"
+              onClick={() =>
+                setIsBulkMenuOpen(
+                  (currentValue) =>
+                    !currentValue,
+                )
+              }
+              disabled={
+                isPageLoading ||
+                isSaving ||
+                attendanceMembers.length ===
+                  0
+              }
+              aria-expanded={
+                isBulkMenuOpen
+              }
+            >
+              Bulk ▾
+            </button>
+
+            {isBulkMenuOpen && (
+              <div className="attendance-bulk-menu">
+                <div className="attendance-bulk-menu-title">
+                  สถานะวอ
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleBulkWarStatus(
+                      'Present',
+                      'มาวอ',
+                    )
+                  }
+                >
+                  ✓ มาวอทั้งหมด
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleBulkWarStatus(
+                      'Leave',
+                      'ลาวอ',
+                    )
+                  }
+                >
+                  ✓ ลาวอทั้งหมด
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleBulkWarStatus(
+                      'Absent',
+                      'ขาด',
+                    )
+                  }
+                >
+                  ✓ ขาดทั้งหมด
+                </button>
+
+                <button
+                  type="button"
+                  className="bulk-clear-action"
+                  onClick={
+                    handleClearBulkWarStatus
+                  }
+                >
+                  ล้างสถานะวอทั้งหมด
+                </button>
+
+                <hr />
+
+                <div className="attendance-bulk-menu-title">
+                  Discord
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleBulkDiscordStatus(
+                      'Online',
+                      'Online',
+                    )
+                  }
+                >
+                  ✓ Online ทั้งหมด
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleBulkDiscordStatus(
+                      'Offline',
+                      'Offline',
+                    )
+                  }
+                >
+                  ✓ Offline ทั้งหมด
+                </button>
+
+                <button
+                  type="button"
+                  className="bulk-clear-action"
+                  onClick={
+                    handleClearBulkDiscordStatus
+                  }
+                >
+                  ล้าง Discord ทั้งหมด
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="attendance-clear-button"
+            onClick={handleClearAll}
+            disabled={
+              isPageLoading ||
+              isSaving ||
+              !hasAttendanceData
+            }
+          >
+            ล้างทั้งหมด
+          </button>
+
+          <button
+            type="button"
+            className="attendance-reload-button"
+            onClick={() => {
+              setIsBulkMenuOpen(false);
+              void reloadAttendance();
+            }}
             disabled={
               isPageLoading || isSaving
             }
@@ -207,9 +721,10 @@ export function AttendancePage({
           <button
             type="button"
             className="attendance-save-button"
-            onClick={() =>
-              void saveCurrentAttendance()
-            }
+            onClick={() => {
+              setIsBulkMenuOpen(false);
+              void saveCurrentAttendance();
+            }}
             disabled={
               isPageLoading ||
               isSaving ||
@@ -231,11 +746,18 @@ export function AttendancePage({
             type="date"
             value={eventDate}
             onChange={(event) =>
-              setEventDate(
+              handleEventDateChange(
                 event.target.value,
               )
             }
           />
+
+          <small className="attendance-date-hint">
+            {eventType ===
+            'GuildLeague'
+              ? 'เลือกได้เฉพาะวันอังคารและวันพฤหัสบดี'
+              : 'เลือกได้เฉพาะวันอาทิตย์'}
+          </small>
         </label>
 
         <label>
@@ -244,7 +766,7 @@ export function AttendancePage({
           <select
             value={eventType}
             onChange={(event) =>
-              setEventType(
+              handleEventTypeChange(
                 event.target
                   .value as AttendanceEventType,
               )
@@ -258,23 +780,39 @@ export function AttendancePage({
               Overrun
             </option>
           </select>
+
+          <small className="attendance-date-hint">
+            &nbsp;
+          </small>
         </label>
       </section>
+
+      {dateValidationMessage && (
+        <div className="attendance-date-warning">
+          ⚠ {dateValidationMessage}
+        </div>
+      )}
 
       <section className="attendance-summary-grid">
         <article className="attendance-summary-card present">
           <span>มาวอ</span>
-          <strong>{summary.present}</strong>
+          <strong>
+            {summary.present}
+          </strong>
         </article>
 
         <article className="attendance-summary-card leave">
           <span>ลาวอ</span>
-          <strong>{summary.leave}</strong>
+          <strong>
+            {summary.leave}
+          </strong>
         </article>
 
         <article className="attendance-summary-card absent">
           <span>ขาด</span>
-          <strong>{summary.absent}</strong>
+          <strong>
+            {summary.absent}
+          </strong>
         </article>
 
         <article className="attendance-summary-card unchecked">
@@ -325,7 +863,8 @@ export function AttendancePage({
 
       {!isPageLoading &&
         !errorMessage &&
-        attendanceMembers.length === 0 && (
+        attendanceMembers.length ===
+          0 && (
           <div className="attendance-status">
             ไม่พบข้อมูลสมาชิก
           </div>
@@ -333,7 +872,8 @@ export function AttendancePage({
 
       {!isPageLoading &&
         !errorMessage &&
-        attendanceMembers.length > 0 && (
+        attendanceMembers.length >
+          0 && (
           <section className="attendance-member-list">
             <header className="attendance-table-header">
               <span>สมาชิก</span>
@@ -342,7 +882,7 @@ export function AttendancePage({
               <span>หมายเหตุ</span>
             </header>
 
-            {attendanceMembers.map(
+            {sortedAttendanceMembers.map(
               (member) => {
                 const displayedLeaveCount =
                   member.monthlyLeaveCount +
