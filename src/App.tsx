@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { MemberList } from './components/member/MemberList';
+import { MemberPanel } from './components/member/MemberPanel';
+import { PartyBoard } from './components/party/PartyBoard';
 import { useMembers } from './hooks/useMembers';
 import type { PartyMode } from './types/member';
 
@@ -14,12 +15,21 @@ function App() {
     reloadMembers,
   } = useMembers();
 
+  const modeLabel =
+    mode === 'guildLeague'
+      ? 'Guild League'
+      : 'Overrun';
+
   return (
-    <main className="app">
+    <div className="app">
       <header className="app-header">
-        <div>
-          <h1>EZMOO Guild Manager</h1>
-          <p>สมาชิกทั้งหมด {members.length} คน</p>
+        <div className="brand">
+          <div className="brand-logo">EZ</div>
+
+          <div>
+            <h1>EZMOO Guild Manager</h1>
+            <p>Party management system</p>
+          </div>
         </div>
 
         <button
@@ -28,7 +38,7 @@ function App() {
           onClick={() => void reloadMembers()}
           disabled={isLoading}
         >
-          {isLoading ? 'กำลังโหลด...' : 'โหลดใหม่'}
+          {isLoading ? 'กำลังโหลด...' : 'โหลดข้อมูลใหม่'}
         </button>
       </header>
 
@@ -52,33 +62,36 @@ function App() {
         </button>
       </nav>
 
-      <section className="content-panel">
-        <h2>Members</h2>
+      {isLoading && (
+        <div className="status-card">
+          กำลังโหลดข้อมูลสมาชิก...
+        </div>
+      )}
 
-        {isLoading && (
-          <p className="status-message">
-            กำลังโหลดข้อมูลสมาชิก...
-          </p>
-        )}
+      {errorMessage && (
+        <div className="error-message">
+          <p>{errorMessage}</p>
 
-        {errorMessage && (
-          <div className="error-message">
-            <p>{errorMessage}</p>
+          <button
+            type="button"
+            onClick={() => void reloadMembers()}
+          >
+            ลองใหม่
+          </button>
+        </div>
+      )}
 
-            <button
-              type="button"
-              onClick={() => void reloadMembers()}
-            >
-              ลองใหม่
-            </button>
-          </div>
-        )}
+      {!isLoading && !errorMessage && (
+        <main className="workspace">
+          <PartyBoard modeLabel={modeLabel} />
 
-        {!isLoading && !errorMessage && (
-          <MemberList members={members} mode={mode} />
-        )}
-      </section>
-    </main>
+          <MemberPanel
+            members={members}
+            mode={mode}
+          />
+        </main>
+      )}
+    </div>
   );
 }
 
