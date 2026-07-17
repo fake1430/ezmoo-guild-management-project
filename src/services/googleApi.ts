@@ -59,3 +59,41 @@ export function getParties(
     sheet: sheetName,
   });
 }
+export async function saveParties(
+  sheetName: 'GuildLeague' | 'Overrun',
+  parties: Party[],
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'saveParty',
+      sheet: sheetName,
+      parties,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result = (await response.json()) as
+    | {
+        success: true;
+        message: string;
+      }
+    | {
+        success: false;
+        error: string;
+      };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
+}

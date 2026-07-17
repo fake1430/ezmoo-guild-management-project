@@ -1,9 +1,13 @@
-import type { DragEvent } from 'react';
+import {
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+} from 'react';
+import { toBlob } from 'html-to-image';
+import type { Member, PartyMode } from '../../types/member';
 import type { Party } from '../../types/partyTypes';
-import type {
-  Member,
-  PartyMode,
-} from '../../types/member';
+import { getClassColor } from '../../constants/classColors';
 
 interface PartyBoardProps {
   modeLabel: string;
@@ -13,8 +17,14 @@ interface PartyBoardProps {
   isLoading: boolean;
   errorMessage: string;
   onReload: () => Promise<void>;
+  onSave: () => Promise<void>;
+  isSaving: boolean;
   onAddParty: () => void;
   onClearAll: () => void;
+  onRemoveMember: (
+  partyIndex: number,
+  slotIndex: number,
+) => void;
   onClearParty: (partyIndex: number) => void;
   onDeleteParty: (partyIndex: number) => void;
   onDropMember: (
@@ -22,42 +32,16 @@ interface PartyBoardProps {
     partyIndex: number,
     slotIndex: number,
   ) => void;
+  onSwapParties: (
+    sourcePartyIndex: number,
+    targetPartyIndex: number,
+  ) => void;
 }
 
-interface DraggedPartyMember {
-  memberName: string;
-  sourcePartyIndex: number;
-  sourceSlotIndex: number;
-}
-
-function handlePartyMemberDragStart(
-  event: DragEvent<HTMLDivElement>,
-  memberName: string,
-  partyIndex: number,
-  slotIndex: number,
-): void {
-  const payload: DraggedPartyMember = {
-    memberName,
-    sourcePartyIndex: partyIndex,
-    sourceSlotIndex: slotIndex,
-  };
-
-  event.dataTransfer.effectAllowed = 'move';
-
-  event.dataTransfer.setData(
-    'application/x-ezmoo-party-member',
-    JSON.stringify(payload),
-  );
-
-  event.dataTransfer.setData(
-    'application/x-ezmoo-member',
-    memberName,
-  );
-
-  event.dataTransfer.setData(
-    'text/plain',
-    memberName,
-  );
+interface RaidColumnProps {
+  title: string;
+  parties: Party[];
+  startIndex: number;
 }
 
 function normalizeSlots(slots: string[]): string[] {
@@ -77,7 +61,7 @@ function getMemberClass(
   mode: PartyMode,
 ): string {
   const member = members.find(
-    (item) => item.ign === memberName,
+    (currentMember) => currentMember.ign === memberName,
   );
 
   if (!member) {
@@ -97,26 +81,70 @@ export function PartyBoard({
   isLoading,
   errorMessage,
   onReload,
+  onSave,
+  isSaving,
   onAddParty,
   onClearAll,
   onClearParty,
   onDeleteParty,
   onDropMember,
+  onSwapParties,
+  onRemoveMember,
 }: PartyBoardProps) {
-  function handleDragOver(
+  const [isDraggingParty, setIsDraggingParty] =
+    useState(false);
+  const captureAreaRef =
+  useRef<HTMLDivElement | null>(null);
+
+  const [isCapturing, setIsCapturing] =
+  useState(false);
+  
+  const [copied, setCopied] =
+  useState(false);
+
+  function handleMemberDragStart(
+    event: DragEvent<HTMLDivElement>,
+    memberName: string,
+  ): void {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = 'move';
+
+    event.dataTransfer.setData(
+      'application/x-ezmoo-member',
+      memberName,
+    );
+
+    event.dataTransfer.setData(
+      'text/plain',
+      memberName,
+    );
+  }
+  
+  const [dragTargetParty, setDragTargetParty] =
+  useState<number | null>(null);
+
+  function handleMemberDragOver(
     event: DragEvent<HTMLDivElement>,
   ): void {
+    const hasMemberData =
+      event.dataTransfer.types.includes(
+        'application/x-ezmoo-member',
+      );
+
+    if (!hasMemberData) {
+      return;
+    }
+
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
   }
 
-  function handleDrop(
+  function handleMemberDrop(
     event: DragEvent<HTMLDivElement>,
     partyIndex: number,
     slotIndex: number,
   ): void {
-    event.preventDefault();
-
     const memberName =
       event.dataTransfer.getData(
         'application/x-ezmoo-member',
@@ -128,6 +156,9 @@ export function PartyBoard({
       return;
     }
 
+    event.preventDefault();
+    event.stopPropagation();
+
     onDropMember(
       normalizedName,
       partyIndex,
@@ -135,14 +166,394 @@ export function PartyBoard({
     );
   }
 
+function handlePartyDragStart(
+  event: DragEvent<HTMLDivElement>,
+  partyIndex: number,
+): void {
+  event.stopPropagation();
+  event.dataTransfer.effectAllowed = 'move';
+
+  event.dataTransfer.setData(
+    'application/x-ezmoo-party',
+    String(partyIndex),
+  );
+
+  setDragTargetParty(null);
+  setIsDraggingParty(true);
+}
+
+function handlePartyDragOver(
+  event: DragEvent<HTMLElement>,
+  targetPartyIndex?: number,
+): void {
+  const hasPartyData =
+    event.dataTransfer.types.includes(
+      'application/x-ezmoo-party',
+    );
+
+  if (!hasPartyData) {
+    return;
+  }
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+
+  if (targetPartyIndex !== undefined) {
+    setDragTargetParty(targetPartyIndex);
+  }
+}
+function handlePartyDragLeave(
+  event: DragEvent<HTMLElement>,
+  partyIndex: number,
+): void {
+  const nextElement = event.relatedTarget;
+
+  if (
+    nextElement instanceof Node &&
+    event.currentTarget.contains(nextElement)
+  ) {
+    return;
+  }
+
+  setDragTargetParty((currentTarget) =>
+    currentTarget === partyIndex
+      ? null
+      : currentTarget,
+  );
+}
+
+function handlePartyDrop(
+  event: DragEvent<HTMLElement>,
+  targetPartyIndex: number,
+): void {
+  const sourceIndexText =
+    event.dataTransfer.getData(
+      'application/x-ezmoo-party',
+    );
+
+  if (!sourceIndexText) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const sourcePartyIndex = Number(sourceIndexText);
+
+  setDragTargetParty(null);
+  setIsDraggingParty(false);
+
+  if (
+    Number.isNaN(sourcePartyIndex) ||
+    sourcePartyIndex === targetPartyIndex
+  ) {
+    return;
+  }
+
+  onSwapParties(
+    sourcePartyIndex,
+    targetPartyIndex,
+  );
+}
+
+  function handleDeleteDrop(
+    event: DragEvent<HTMLDivElement>,
+  ): void {
+    const sourceIndexText =
+      event.dataTransfer.getData(
+        'application/x-ezmoo-party',
+      );
+
+    if (!sourceIndexText) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const sourcePartyIndex = Number(sourceIndexText);
+
+    if (!Number.isNaN(sourcePartyIndex)) {
+      onDeleteParty(sourcePartyIndex);
+    }
+
+    setIsDraggingParty(false);
+    setDragTargetParty(null);
+    setIsDraggingParty(false);
+  }
+
+  function handleClearPartyContextMenu(
+    event: MouseEvent<HTMLDivElement>,
+    partyIndex: number,
+  ): void {
+    event.preventDefault();
+    onClearParty(partyIndex);
+  }
+  async function handleCopyRaidImage(): Promise<void> {
+  const captureElement = captureAreaRef.current;
+
+  if (!captureElement) {
+    window.alert('ไม่พบพื้นที่สำหรับแคปภาพ');
+    return;
+  }
+
+  try {
+    setIsCapturing(true);
+
+    const blob = await toBlob(captureElement, {
+      backgroundColor: '#f8fafc',
+      pixelRatio: 2,
+      cacheBust: true,
+    });
+
+    if (!blob) {
+      throw new Error('สร้างภาพไม่สำเร็จ');
+    }
+
+    if (
+      !navigator.clipboard ||
+      typeof ClipboardItem === 'undefined'
+    ) {
+      throw new Error(
+        'เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพ',
+      );
+    }
+
+    const pngBlob =
+      blob.type === 'image/png'
+        ? blob
+        : new Blob([blob], {
+            type: 'image/png',
+          });
+
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': pngBlob,
+          }),
+        ]);
+
+        setCopied(true);
+
+        setTimeout(() => {
+          setCopied(false);
+        }, 2000);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'ไม่สามารถคัดลอกรูปภาพได้';
+
+    window.alert(message);
+  } finally {
+    setIsCapturing(false);
+  }
+}
+
+  function renderRaidColumn({
+    title,
+    parties: raidParties,
+    startIndex,
+  }: RaidColumnProps) {
+    const raidMemberCount = raidParties.reduce(
+      (total, party) => total + countMembers(party),
+      0,
+    );
+
+    const canAddParty =
+      parties.length < 16 &&
+      (
+        (startIndex === 0 && parties.length < 8) ||
+        (startIndex === 8 && parties.length >= 8)
+      );
+
+    return (
+      <section className="compact-raid-column">
+        <header className="compact-raid-header">
+          <h3>{title}</h3>
+
+          <span
+            className={
+              raidMemberCount === 40
+                ? 'raid-count full'
+                : 'raid-count'
+            }
+          >
+            {raidMemberCount}/40
+          </span>
+        </header>
+
+        <div className="compact-party-list">
+          {raidParties.map((party, localIndex) => {
+            const actualPartyIndex =
+              startIndex + localIndex;
+
+            const displayPartyNumber =
+              localIndex + 1;
+
+            const slots = normalizeSlots(party.slots);
+
+            return (
+              <article
+                    className={
+                      dragTargetParty === actualPartyIndex
+                        ? 'compact-party-row drag-target'
+                        : 'compact-party-row'
+                    }
+                    key={`${title}-${actualPartyIndex}`}
+                    onDragOver={(event) =>
+                      handlePartyDragOver(
+                        event,
+                        actualPartyIndex,
+                      )
+                    }
+                    onDragLeave={(event) =>
+                      handlePartyDragLeave(
+                        event,
+                        actualPartyIndex,
+                      )
+                    }
+                    onDrop={(event) =>
+                      handlePartyDrop(
+                        event,
+                        actualPartyIndex,
+                      )
+                    }
+                  >
+                <div
+                  className="compact-party-number"
+                  draggable
+                  onDragStart={(event) =>
+                    handlePartyDragStart(
+                      event,
+                      actualPartyIndex,
+                    )
+                  }
+                  onDragEnd={() => {
+                    setIsDraggingParty(false);
+                    setDragTargetParty(null);
+                  }}
+                  onContextMenu={(event) =>
+                    handleClearPartyContextMenu(
+                      event,
+                      actualPartyIndex,
+                    )
+                  }
+                  title={
+                    'ลากเพื่อสลับปาร์ตี้\nคลิกขวาเพื่อล้างปาร์ตี้'
+                  }
+                >
+                  {displayPartyNumber}
+                </div>
+
+                <div className="compact-party-slots">
+                  {slots.map(
+                    (memberName, slotIndex) => {
+                      const className = memberName
+                        ? getMemberClass(
+                            memberName,
+                            members,
+                            mode,
+                          )
+                        : '';
+
+                      return (
+                        <div
+                          className={
+                            memberName
+                              ? 'compact-party-slot occupied'
+                              : 'compact-party-slot empty'
+                          }
+                          key={slotIndex}
+                          draggable={Boolean(memberName)}
+                          onDragStart={(event) => {
+                            if (memberName) {
+                              handleMemberDragStart(
+                                event,
+                                memberName,
+                              );
+                            }
+                          }}
+                          onDragOver={(event) =>
+                            handlePartyDragOver(event)
+                          }
+                          onDrop={(event) =>
+                            handleMemberDrop(
+                              event,
+                              actualPartyIndex,
+                              slotIndex,
+                            )
+                          }
+                        >
+                        {memberName ? (
+                          <>
+                            <button
+                              type="button"
+                              className="member-remove-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+
+                                onRemoveMember(
+                                  actualPartyIndex,
+                                  slotIndex,
+                                );
+                              }}
+                              aria-label={`นำ ${memberName} ออกจากปาร์ตี้`}
+                              title="นำสมาชิกออก"
+                            >
+                              ✕
+                            </button>
+
+                            <span
+                              className="party-member-class"
+                              style={{
+                                backgroundColor: getClassColor(
+                                  className || 'ไม่ระบุอาชีพ',
+                                ),
+                              }}
+                            >
+                              {className || 'ไม่ระบุอาชีพ'}
+                            </span>
+
+                            <strong>{memberName}</strong>
+                          </>
+                        ) : (
+                          <span className="compact-empty-text">
+                            Empty
+                          </span>
+                        )}
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </article>
+            );
+          })}
+
+          {canAddParty && (
+            <button
+              type="button"
+              className="compact-add-party"
+              onClick={onAddParty}
+            >
+              + เพิ่ม Party {raidParties.length + 1}
+            </button>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  const raidAParties = parties.slice(0, 8);
+  const raidBParties = parties.slice(8, 16);
+
   return (
     <section className="party-board">
       <div className="party-toolbar">
         <div>
-          <h2>{modeLabel} Party</h2>
+          <h2>{modeLabel} 40 vs 40</h2>
 
           <p>
-            {parties.length} ปาร์ตี้ · ปาร์ตี้ละ 5 คน
+            {parties.length} ปาร์ตี้ · รองรับสูงสุด 80 คน
           </p>
         </div>
 
@@ -158,8 +569,31 @@ export function PartyBoard({
 
           <button
             type="button"
+            className="toolbar-button save-button"
+            onClick={() => void onSave()}
+            disabled={isLoading || isSaving}
+          >
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+          </button>
+
+          <button
+            type="button"
+            className="toolbar-button capture-button"
+            onClick={() => void handleCopyRaidImage()}
+            disabled={isCapturing || isLoading}
+          >
+            {isCapturing
+              ? 'กำลังสร้างภาพ...'
+              : copied
+                ? '✓ คัดลอกแล้ว'
+                : '📷 คัดลอกรูป'}
+          </button>
+
+          <button
+            type="button"
             className="toolbar-button add-button"
             onClick={onAddParty}
+            disabled={parties.length >= 16}
           >
             + เพิ่มปาร์ตี้
           </button>
@@ -199,8 +633,7 @@ export function PartyBoard({
         parties.length === 0 && (
           <div className="empty-party-board">
             <strong>ยังไม่มีปาร์ตี้</strong>
-
-            <p>กด “เพิ่มปาร์ตี้” เพื่อสร้างปาร์ตี้แรก</p>
+            <p>กด “เพิ่มปาร์ตี้” เพื่อเริ่มจัดทีม</p>
 
             <button
               type="button"
@@ -215,122 +648,33 @@ export function PartyBoard({
       {!isLoading &&
         !errorMessage &&
         parties.length > 0 && (
-          <div className="party-list">
-            {parties.map((party, partyIndex) => {
-              const partyNumber =
-                party.party ?? partyIndex + 1;
+            <div
+              ref={captureAreaRef}
+              className="compact-raid-grid capture-area"
+            >
+            {renderRaidColumn({
+              title: 'Raid A',
+              parties: raidAParties,
+              startIndex: 0,
+            })}
 
-              const slots = normalizeSlots(party.slots);
-              const memberCount = countMembers(party);
-
-              return (
-                <article
-                  className="party-card"
-                  key={`${partyNumber}-${partyIndex}`}
-                >
-                  <div className="party-card-header">
-                    <div className="party-title-group">
-                      <span className="party-number">
-                        {partyNumber}
-                      </span>
-
-                      <div>
-                        <h3>Party {partyNumber}</h3>
-
-                        <p
-                          className={
-                            memberCount === 5
-                              ? 'party-capacity full'
-                              : 'party-capacity'
-                          }
-                        >
-                          {memberCount}/5 คน
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="party-card-actions">
-                      <button
-                        type="button"
-                        className="small-action-button"
-                        onClick={() =>
-                          onClearParty(partyIndex)
-                        }
-                        disabled={memberCount === 0}
-                      >
-                        ล้างปาร์ตี้
-                      </button>
-
-                      <button
-                        type="button"
-                        className="small-action-button delete-button"
-                        onClick={() =>
-                          onDeleteParty(partyIndex)
-                        }
-                      >
-                        ลบ
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="party-slots">
-                    {slots.map(
-                      (memberName, slotIndex) => (
-                        <div
-                          className={
-                            memberName
-                              ? 'party-slot occupied'
-                              : 'party-slot empty'
-                          }
-                          key={slotIndex}
-                          draggable={Boolean(memberName)}
-                          onDragStart={(event) => {
-                            if (memberName) {
-                              handlePartyMemberDragStart(
-                                event,
-                                memberName,
-                                partyIndex,
-                                slotIndex,
-                              );
-                            }
-                          }}
-                          onDragOver={handleDragOver}
-                          onDrop={(event) =>
-                            handleDrop(
-                              event,
-                              partyIndex,
-                              slotIndex,
-                            )
-                          }
-                        >
-                          <span className="slot-label">
-                            Slot {slotIndex + 1}
-                          </span>
-
-                              {memberName ? (
-                                <>
-                                  <span className="party-member-class">
-                                    {getMemberClass(
-                                      memberName,
-                                      members,
-                                      mode,
-                                    ) || 'ไม่ระบุอาชีพ'}
-                                  </span>
-
-                                  <strong>{memberName}</strong>
-                                </>
-                              ) : (
-                                <strong>Empty</strong>
-                              )}
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </article>
-              );
+            {renderRaidColumn({
+              title: 'Raid B',
+              parties: raidBParties,
+              startIndex: 8,
             })}
           </div>
         )}
+
+      {isDraggingParty && (
+        <div
+          className="party-delete-drop-zone"
+          onDragOver={handlePartyDragOver}
+          onDrop={handleDeleteDrop}
+        >
+          🗑 ลากปาร์ตี้มาวางที่นี่เพื่อลบ
+        </div>
+      )}
     </section>
   );
 }

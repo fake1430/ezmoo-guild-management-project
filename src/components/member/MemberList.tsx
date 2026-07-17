@@ -3,6 +3,7 @@ import type {
   Member,
   PartyMode,
 } from '../../types/member';
+import { getClassColor } from '../../constants/classColors';
 
 interface MemberListProps {
   members: Member[];
@@ -77,7 +78,12 @@ export function MemberList({
                 : 'ลากสมาชิกลงช่องปาร์ตี้'
             }
           >
-            <span className="class-badge">
+            <span
+              className="class-badge"
+              style={{
+                backgroundColor: getClassColor(className),
+              }}
+            >
               {className}
             </span>
 

@@ -9,12 +9,15 @@ import { useMembers } from './hooks/useMembers';
 import { useParties } from './hooks/useParties';
 import type { PartyMode } from './types/member';
 import type { Party } from './types/partyTypes';
+import { saveParties } from './services/googleApi';
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
 function App() {
   const [mode, setMode] =
     useState<PartyMode>('guildLeague');
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const [editableParties, setEditableParties] =
     useState<Party[]>([]);
@@ -137,56 +140,58 @@ function App() {
     ]);
   }
 
-function handleDropMember(
-  memberName: string,
-  targetPartyIndex: number,
-  targetSlotIndex: number,
-): void {
-  setEditableParties((currentParties) => {
-    let sourcePartyIndex = -1;
-    let sourceSlotIndex = -1;
+  function handleDropMember(
+    memberName: string,
+    targetPartyIndex: number,
+    targetSlotIndex: number,
+  ): void {
+    setEditableParties((currentParties) => {
+      let sourcePartyIndex = -1;
+      let sourceSlotIndex = -1;
 
-    currentParties.forEach((party, partyIndex) => {
-      party.slots.forEach((currentMember, slotIndex) => {
-        if (currentMember === memberName) {
-          sourcePartyIndex = partyIndex;
-          sourceSlotIndex = slotIndex;
-        }
+      currentParties.forEach((party, partyIndex) => {
+        party.slots.forEach(
+          (currentMember, slotIndex) => {
+            if (currentMember === memberName) {
+              sourcePartyIndex = partyIndex;
+              sourceSlotIndex = slotIndex;
+            }
+          },
+        );
       });
-    });
 
-    const targetMember =
-      currentParties[targetPartyIndex]?.slots[
+      const targetMember =
+        currentParties[targetPartyIndex]?.slots[
+          targetSlotIndex
+        ] ?? '';
+
+      const updatedParties = currentParties.map(
+        (party) => ({
+          ...party,
+          slots: Array.from(
+            { length: 5 },
+            (_, slotIndex) =>
+              party.slots[slotIndex] ?? '',
+          ),
+        }),
+      );
+
+      if (
+        sourcePartyIndex !== -1 &&
+        sourceSlotIndex !== -1
+      ) {
+        updatedParties[sourcePartyIndex].slots[
+          sourceSlotIndex
+        ] = targetMember;
+      }
+
+      updatedParties[targetPartyIndex].slots[
         targetSlotIndex
-      ] ?? '';
+      ] = memberName;
 
-    const updatedParties = currentParties.map(
-      (party) => ({
-        ...party,
-        slots: Array.from(
-          { length: 5 },
-          (_, slotIndex) =>
-            party.slots[slotIndex] ?? '',
-        ),
-      }),
-    );
-
-    if (
-      sourcePartyIndex !== -1 &&
-      sourceSlotIndex !== -1
-    ) {
-      updatedParties[sourcePartyIndex].slots[
-        sourceSlotIndex
-      ] = targetMember;
-    }
-
-    updatedParties[targetPartyIndex].slots[
-      targetSlotIndex
-    ] = memberName;
-
-    return updatedParties;
-  });
-}
+      return updatedParties;
+    });
+  }
 
   function handleRemoveMemberFromParty(
     memberName: string,
@@ -201,6 +206,95 @@ function handleDropMember(
         ),
       })),
     );
+  }
+
+  function handleRemoveMember(
+    partyIndex: number,
+    slotIndex: number,
+  ): void {
+    setEditableParties((currentParties) =>
+      currentParties.map((party, index) => {
+        if (index !== partyIndex) {
+          return party;
+        }
+
+        return {
+          ...party,
+          slots: party.slots.map(
+            (memberName, currentSlotIndex) =>
+              currentSlotIndex === slotIndex
+                ? ''
+                : memberName,
+          ),
+        };
+      }),
+    );
+  }
+
+  async function handleSaveParties(): Promise<void> {
+    try {
+      setIsSaving(true);
+
+      const sheetName =
+        mode === 'guildLeague'
+          ? 'GuildLeague'
+          : 'Overrun';
+
+      const message = await saveParties(
+        sheetName,
+        editableParties,
+      );
+
+      window.alert(message);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'เกิดข้อผิดพลาดขณะบันทึกข้อมูล';
+
+      window.alert(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleSwapParties(
+    sourcePartyIndex: number,
+    targetPartyIndex: number,
+  ): void {
+    if (sourcePartyIndex === targetPartyIndex) {
+      return;
+    }
+
+    setEditableParties((currentParties) => {
+      const sourceParty =
+        currentParties[sourcePartyIndex];
+
+      const targetParty =
+        currentParties[targetPartyIndex];
+
+      if (!sourceParty || !targetParty) {
+        return currentParties;
+      }
+
+      return currentParties.map((party, index) => {
+        if (index === sourcePartyIndex) {
+          return {
+            ...party,
+            slots: [...targetParty.slots],
+          };
+        }
+
+        if (index === targetPartyIndex) {
+          return {
+            ...party,
+            slots: [...sourceParty.slots],
+          };
+        }
+
+        return party;
+      });
+    });
   }
 
   return (
@@ -274,11 +368,15 @@ function handleDropMember(
             isLoading={isLoadingParties}
             errorMessage={partyErrorMessage}
             onReload={reloadParties}
+            onSave={handleSaveParties}
+            isSaving={isSaving}
             onAddParty={handleAddParty}
             onClearAll={handleClearAll}
             onClearParty={handleClearParty}
             onDeleteParty={handleDeleteParty}
             onDropMember={handleDropMember}
+            onSwapParties={handleSwapParties}
+            onRemoveMember={handleRemoveMember}
           />
 
           <MemberPanel

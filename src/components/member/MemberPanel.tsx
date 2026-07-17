@@ -9,6 +9,35 @@ interface MemberPanelProps {
   onRemoveMemberFromParty: (memberName: string) => void;
 }
 
+const CLASS_ORDER = [
+  'Priest',
+  'High Priest',
+  'Knight',
+  'Lord Knight',
+  'Crusader',
+  'Paladin',
+  'Wizard',
+  'High Wizard',
+  'Sage',
+  'Professor',
+  'Assassin',
+  'Assassin Cross',
+  'Rogue',
+  'Stalker',
+  'Hunter',
+  'Sniper',
+  'Bard/Dancer',
+  'Clown/Gypsy',
+  'Merchant',
+  'Blacksmith',
+  'Whitesmith',
+  'Alchemist',
+  'Biochemist',
+  'Creator',
+  'Gunslinger',
+  'Doram',
+];
+
 function getMemberClass(
   member: Member,
   mode: PartyMode,
@@ -38,9 +67,24 @@ export function MemberPanel({
       }
     });
 
-    return Array.from(uniqueClasses).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    return Array.from(uniqueClasses).sort((a, b) => {
+      const indexA = CLASS_ORDER.indexOf(a);
+      const indexB = CLASS_ORDER.indexOf(b);
+
+      if (indexA === -1 && indexB === -1) {
+        return a.localeCompare(b);
+      }
+
+      if (indexA === -1) {
+        return 1;
+      }
+
+      if (indexB === -1) {
+        return -1;
+      }
+
+      return indexA - indexB;
+    });
   }, [members, mode]);
 
   useEffect(() => {
@@ -50,19 +94,47 @@ export function MemberPanel({
   const filteredMembers = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
 
-    return members.filter((member) => {
-      const className = getMemberClass(member, mode);
+    return members
+      .filter((member) => {
+        const className = getMemberClass(member, mode);
 
-      const matchesName = member.ign
-        .toLowerCase()
-        .includes(keyword);
+        const matchesName = member.ign
+          .toLowerCase()
+          .includes(keyword);
 
-      const matchesClass =
-        selectedClass === '' ||
-        className === selectedClass;
+        const matchesClass =
+          selectedClass === '' ||
+          className === selectedClass;
 
-      return matchesName && matchesClass;
-    });
+        return matchesName && matchesClass;
+      })
+      .sort((a, b) => {
+        const classA = getMemberClass(a, mode);
+        const classB = getMemberClass(b, mode);
+
+        const orderA = CLASS_ORDER.indexOf(classA);
+        const orderB = CLASS_ORDER.indexOf(classB);
+
+        if (orderA !== orderB) {
+          if (orderA === -1) {
+            return 1;
+          }
+
+          if (orderB === -1) {
+            return -1;
+          }
+
+          return orderA - orderB;
+        }
+
+        return a.ign.localeCompare(
+          b.ign,
+          'en',
+          {
+            sensitivity: 'base',
+          },
+        );
+      });
   }, [members, mode, searchText, selectedClass]);
 
   return (
@@ -115,7 +187,10 @@ export function MemberPanel({
           <option value="">ทุกอาชีพ</option>
 
           {classOptions.map((className) => (
-            <option key={className} value={className}>
+            <option
+              key={className}
+              value={className}
+            >
               {className}
             </option>
           ))}
