@@ -1,4 +1,5 @@
 import type { Member } from '../types/member';
+import type { Party } from '../types/partyTypes';
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -49,4 +50,12 @@ if ('error' in result) {
 
 export function getMembers(): Promise<Member[]> {
   return request<Member[]>('members');
+}
+
+export function getParties(
+  sheetName: 'GuildLeague' | 'Overrun',
+): Promise<Party[]> {
+  return request<Party[]>('party', {
+    sheet: sheetName,
+  });
 }
