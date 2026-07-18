@@ -6,6 +6,10 @@ import {
 import { useGuildLeagueAuction } from '../../hooks/useGuildLeagueAuction';
 
 import type { Member } from '../../types/member';
+import cardBookIcon from '../../assets/auction/album-book.png';
+import whiteFeatherIcon from '../../assets/auction/white-feather.png';
+import redFeatherIcon from '../../assets/auction/red-feather.png';
+
 
 interface AuctionPageProps {
   members: Member[];
@@ -335,130 +339,231 @@ export function AuctionPage({
 
       {!isLoading &&
         !errorMessage && (
-          <section className="auction-table-container">
-            <header className="auction-table-header">
-              <span>ตี้</span>
-              <span>เจ้าของสิทธิ</span>
-              <span>ขายให้</span>
-              <span>การ์ด</span>
-              <span>ขนนกขาว</span>
-              <span>ขนนกแดง</span>
-            </header>
+<section className="auction-card-grid">
+  {auctionRows.map((row) => {
+    const hasOwner =
+      row.queueOwner.trim() !== '';
 
-            {auctionRows.map((row) => (
-              <article
-                className={
-                  row.soldTo.trim()
-                    ? 'auction-row sold'
-                    : 'auction-row'
-                }
-                key={row.partyNo}
-              >
-                <strong className="auction-party-number">
-                  {row.partyNo}
-                </strong>
+    const isSold =
+      row.soldTo.trim() !== '';
 
-                <select
-                  value={row.queueOwner}
-                  onChange={(event) =>
-                    setQueueOwner(
-                      row.partyNo,
-                      event.target.value,
-                    )
-                  }
-                >
-                  <option value="">
-                    เลือกเจ้าของสิทธิ
-                  </option>
+    const cardClassName = [
+      'auction-party-card',
+      isSold ? 'sold' : '',
+      !hasOwner ? 'missing-owner' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
-                  {row.partyMembers.map(
-                    (memberName) => (
-                      <option
-                        key={memberName}
-                        value={memberName}
-                      >
-                        {memberName}
-                      </option>
-                    ),
-                  )}
-                </select>
+return (
+  <article
+    className={[
+      'auction-v2-card',
+      isSold ? 'is-sold' : '',
+      !hasOwner ? 'needs-owner' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')}
+    key={row.partyNo}
+  >
+    <header className="auction-v2-header">
+      <div>
+        <span className="auction-v2-eyebrow">
+          AUCTION PARTY
+        </span>
 
-<select
-  value={row.soldTo}
-  onChange={(event) =>
-    setSoldTo(
-      row.partyNo,
-      event.target.value,
-    )
-  }
->
-  <option value="">
-    ไม่ได้ขายสิทธิ
-  </option>
+        <h3>Party {row.partyNo}</h3>
+      </div>
 
-  {memberNames.map(
-    (memberName) => (
-      <option
-        key={memberName}
-        value={memberName}
+      <span
+        className={[
+          'auction-v2-status',
+          isSold
+            ? 'sold'
+            : hasOwner
+              ? 'ready'
+              : 'waiting',
+        ].join(' ')}
       >
-        {memberName}
-      </option>
-    ),
-  )}
-</select>
+        {isSold
+          ? 'ขายสิทธิแล้ว'
+          : hasOwner
+            ? 'พร้อมประมูล'
+            : 'ยังไม่เลือกสิทธิ'}
+      </span>
+    </header>
 
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={row.cardCount}
-                  onChange={(event) =>
-                    setCardCount(
-                      row.partyNo,
-                      Number(
-                        event.target.value,
-                      ),
-                    )
-                  }
-                />
+    <div className="auction-v2-body">
+      <label className="auction-v2-person-field">
+<span className="auction-v2-field-label">
+  <span className="auction-v2-field-icon">
+    👤
+  </span>
+  เจ้าของสิทธิ
+</span>
 
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={
-                    row.whiteFeatherCount
-                  }
-                  onChange={(event) =>
-                    setWhiteFeatherCount(
-                      row.partyNo,
-                      Number(
-                        event.target.value,
-                      ),
-                    )
-                  }
-                />
+        <select
+        className={
+            !isSold && hasOwner
+            ? 'auction-v2-active-user'
+            : ''
+        }
+        value={row.queueOwner}
+          onChange={(event) =>
+            setQueueOwner(
+              row.partyNo,
+              event.target.value,
+            )
+          }
+        >
+          <option value="">
+            เลือกสมาชิกในตี้
+          </option>
 
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={
-                    row.redFeatherCount
-                  }
-                  onChange={(event) =>
-                    setRedFeatherCount(
-                      row.partyNo,
-                      Number(
-                        event.target.value,
-                      ),
-                    )
-                  }
-                />
-              </article>
-            ))}
-          </section>
+          {row.partyMembers.map(
+            (memberName) => (
+              <option
+                key={memberName}
+                value={memberName}
+              >
+                {memberName}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+
+      <label className="auction-v2-person-field">
+<span className="auction-v2-field-label">
+  <span className="auction-v2-field-icon">
+    💰
+  </span>
+  ขายให้
+</span>
+
+            <select
+            className={
+                isSold
+                ? 'auction-v2-active-user'
+                : 'auction-v2-muted-user'
+            }
+            value={row.soldTo}
+          onChange={(event) =>
+            setSoldTo(
+              row.partyNo,
+              event.target.value,
+            )
+          }
+        >
+            <option value="">
+            {' '}
+            </option>
+
+          {memberNames.map(
+            (memberName) => (
+              <option
+                key={memberName}
+                value={memberName}
+              >
+                {memberName}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+
+      <div className="auction-v2-items">
+        <label className="auction-v2-item">
+          <img
+            src={cardBookIcon}
+            alt="สมุดการ์ด"
+          />
+
+          <span>การ์ด</span>
+
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={row.cardCount}
+            onChange={(event) =>
+              setCardCount(
+                row.partyNo,
+                Number(event.target.value),
+              )
+            }
+          />
+        </label>
+
+        <label className="auction-v2-item">
+          <img
+            src={whiteFeatherIcon}
+            alt="ขนนกขาว"
+          />
+
+          <span>ขนนกขาว</span>
+
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={row.whiteFeatherCount}
+            onChange={(event) =>
+              setWhiteFeatherCount(
+                row.partyNo,
+                Number(event.target.value),
+              )
+            }
+          />
+        </label>
+
+        <label className="auction-v2-item">
+          <img
+            src={redFeatherIcon}
+            alt="ขนนกแดง"
+          />
+
+          <span>ขนนกแดง</span>
+
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={row.redFeatherCount}
+            onChange={(event) =>
+              setRedFeatherCount(
+                row.partyNo,
+                Number(event.target.value),
+              )
+            }
+          />
+        </label>
+      </div>
+    </div>
+
+    <footer className="auction-v2-footer">
+      <span>
+        สมาชิก {row.partyMembers.length}/5
+      </span>
+
+      {isSold ? (
+        <strong>
+          {row.queueOwner || '—'}
+          {' → '}
+          {row.soldTo}
+        </strong>
+      ) : (
+        <span>
+          {hasOwner
+            ? `สิทธิของ ${row.queueOwner}`
+            : 'รอเลือกเจ้าของสิทธิ'}
+        </span>
+      )}
+    </footer>
+  </article>
+);
+  })}
+</section>
         )}
     </main>
   );

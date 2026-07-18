@@ -2595,3 +2595,997 @@ button:disabled {
     min-height: 100%;
   }
 }
+/* =========================================================
+   AUCTION CARD GRID
+========================================================= */
+
+.auction-card-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.auction-party-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 340px;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow:
+    0 7px 20px rgb(15 23 42 / 8%);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.auction-party-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background:
+    linear-gradient(
+      90deg,
+      #60a5fa,
+      #2563eb
+    );
+}
+
+.auction-party-card:hover {
+  z-index: 1;
+  border-color: #93c5fd;
+  box-shadow:
+    0 14px 30px
+    rgb(37 99 235 / 14%);
+  transform: translateY(-4px);
+}
+
+.auction-party-card.sold {
+  border-color: #fdba74;
+  background:
+    linear-gradient(
+      160deg,
+      #fff7ed 0%,
+      #ffffff 38%
+    );
+}
+
+.auction-party-card.sold::before {
+  background:
+    linear-gradient(
+      90deg,
+      #fb923c,
+      #f59e0b
+    );
+}
+
+.auction-party-card.missing-owner {
+  border-color: #fca5a5;
+}
+
+.auction-party-card.missing-owner::before {
+  background:
+    linear-gradient(
+      90deg,
+      #f87171,
+      #dc2626
+    );
+}
+
+.auction-party-card-header {
+  display: flex;
+  min-height: 82px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 18px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.auction-party-card-header h3 {
+  margin: 3px 0 0;
+  color: #1e293b;
+  font-size: 22px;
+}
+
+.auction-party-label {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auction-party-status {
+  flex-shrink: 0;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.auction-party-status.ready {
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.auction-party-status.sold {
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+}
+
+.auction-party-status.waiting {
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.auction-party-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.auction-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auction-card-field > span,
+.auction-item-field > span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.auction-card-field select {
+  width: 100%;
+  height: 43px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.auction-card-field:first-child select {
+  color: #1e40af;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.auction-party-card.sold
+.auction-card-field:nth-child(2)
+select {
+  color: #9a3412;
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.auction-card-field select:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 4px
+    rgb(59 130 246 / 12%);
+  transform: translateY(-1px);
+}
+
+.auction-item-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.auction-item-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.auction-item-field.card {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.auction-item-field.white {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.auction-item-field.red {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.auction-item-field input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.auction-item-field input:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 3px
+    rgb(59 130 246 / 12%);
+}
+
+.auction-party-card-footer {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 18px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.auction-party-card-footer span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.auction-party-card-footer strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #c2410c;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1450px) {
+  .auction-card-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1050px) {
+  .auction-card-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .auction-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-party-card {
+    min-height: 0;
+  }
+
+  .auction-party-card-header {
+    min-height: 0;
+  }
+}
+/* =========================================================
+   AUCTION SELECT POLISH
+========================================================= */
+
+.auction-card-field {
+  position: relative;
+}
+
+.auction-card-field select {
+  appearance: none;
+  padding-right: 42px;
+  border-width: 1px;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      #64748b 50%
+    ),
+    linear-gradient(
+      135deg,
+      #64748b 50%,
+      transparent 50%
+    ),
+    linear-gradient(
+      to right,
+      #e2e8f0,
+      #e2e8f0
+    );
+  background-position:
+    calc(100% - 17px) 18px,
+    calc(100% - 12px) 18px,
+    calc(100% - 38px) 8px;
+  background-size:
+    5px 5px,
+    5px 5px,
+    1px 27px;
+  background-repeat: no-repeat;
+  box-shadow:
+    inset 0 1px 0
+    rgb(255 255 255 / 70%),
+    0 3px 8px
+    rgb(15 23 42 / 6%);
+  cursor: pointer;
+}
+
+.auction-card-field select:hover {
+  border-color: #60a5fa;
+  box-shadow:
+    inset 0 1px 0
+    rgb(255 255 255 / 80%),
+    0 6px 14px
+    rgb(37 99 235 / 10%);
+  transform: translateY(-1px);
+}
+
+.auction-card-field select:focus {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 4px
+    rgb(59 130 246 / 14%),
+    0 7px 16px
+    rgb(37 99 235 / 12%);
+}
+
+.auction-card-field:first-child select {
+  background-color: #eff6ff;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      #2563eb 50%
+    ),
+    linear-gradient(
+      135deg,
+      #2563eb 50%,
+      transparent 50%
+    ),
+    linear-gradient(
+      to right,
+      #bfdbfe,
+      #bfdbfe
+    );
+}
+
+.auction-party-card.sold
+.auction-card-field:nth-child(2)
+select {
+  background-color: #fff7ed;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      #ea580c 50%
+    ),
+    linear-gradient(
+      135deg,
+      #ea580c 50%,
+      transparent 50%
+    ),
+    linear-gradient(
+      to right,
+      #fed7aa,
+      #fed7aa
+    );
+}
+
+.auction-card-field select option {
+  color: #1e293b;
+  background: #ffffff;
+}
+.auction-item-title{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+
+    font-size:12px;
+    font-weight:700;
+}
+
+.auction-item-title img{
+    width:24px;
+    height:24px;
+    object-fit:contain;
+}
+/* =========================================================
+   AUCTION — SIMPLIFIED COLOR SYSTEM
+========================================================= */
+
+/* การ์ดพื้นฐาน */
+.auction-party-card {
+  border-color: #dbe4f0;
+  background: #ffffff;
+}
+
+.auction-party-card::before {
+  background: #94a3b8;
+}
+
+/* พร้อมประมูล */
+.auction-party-card:not(.sold):not(.missing-owner) {
+  border-color: #bbf7d0;
+  background:
+    linear-gradient(
+      180deg,
+      #f0fdf4 0%,
+      #ffffff 28%
+    );
+}
+
+.auction-party-card:not(.sold):not(.missing-owner)::before {
+  background: #22c55e;
+}
+
+/* ขายสิทธิแล้ว */
+.auction-party-card.sold {
+  border-color: #fed7aa;
+  background:
+    linear-gradient(
+      180deg,
+      #fff7ed 0%,
+      #ffffff 28%
+    );
+}
+
+.auction-party-card.sold::before {
+  background: #f59e0b;
+}
+
+/* ยังไม่เลือกเจ้าของสิทธิ */
+.auction-party-card.missing-owner {
+  border-color: #fecaca;
+  background:
+    linear-gradient(
+      180deg,
+      #fef2f2 0%,
+      #ffffff 28%
+    );
+}
+
+.auction-party-card.missing-owner::before {
+  background: #ef4444;
+}
+
+/* Badge สถานะยังคงเป็นจุดสีหลัก */
+.auction-party-status.ready {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.auction-party-status.sold {
+  color: #9a3412;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.auction-party-status.waiting {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+/* Owner และขายให้ ใช้หน้าตาเดียวกัน */
+.auction-card-field select,
+.auction-card-field:first-child select,
+.auction-party-card.sold
+.auction-card-field:nth-child(2)
+select {
+  color: #1e293b;
+  border-color: #cbd5e1;
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      #64748b 50%
+    ),
+    linear-gradient(
+      135deg,
+      #64748b 50%,
+      transparent 50%
+    ),
+    linear-gradient(
+      to right,
+      #e2e8f0,
+      #e2e8f0
+    );
+  box-shadow:
+    0 2px 6px rgb(15 23 42 / 6%);
+}
+
+.auction-card-field select:hover {
+  border-color: #94a3b8;
+  box-shadow:
+    0 5px 12px rgb(15 23 42 / 9%);
+}
+
+.auction-card-field select:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 4px rgb(59 130 246 / 12%);
+}
+
+/* ไอเทมทั้งหมดใช้สีเดียวกัน */
+.auction-item-field,
+.auction-item-field.card,
+.auction-item-field.white,
+.auction-item-field.red {
+  border-color: #dbe4f0;
+  background: #f8fafc;
+}
+
+.auction-item-field input {
+  color: #1e293b;
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+/* รูปเป็นตัวแยกประเภทแทนสี */
+.auction-item-title {
+  color: #475569;
+}
+
+.auction-item-title img {
+  width: 30px;
+  height: 30px;
+  filter:
+    drop-shadow(
+      0 2px 3px rgb(15 23 42 / 15%)
+    );
+}
+
+/* Footer ให้เป็นกลาง */
+.auction-party-card-footer {
+  background: #f8fafc;
+}
+
+.auction-party-card-footer strong {
+  color: #9a3412;
+}
+/* =========================================================
+   AUCTION — MUTED NEUTRAL THEME
+========================================================= */
+
+.auction-party-card,
+.auction-party-card.sold,
+.auction-party-card.missing-owner,
+.auction-party-card:not(.sold):not(.missing-owner) {
+  border-color: #d7dee8;
+  background: #ffffff;
+}
+
+.auction-party-card::before,
+.auction-party-card.sold::before,
+.auction-party-card.missing-owner::before,
+.auction-party-card:not(.sold):not(.missing-owner)::before {
+  height: 3px;
+  background: #64748b;
+}
+
+.auction-party-card:hover {
+  border-color: #b8c3d1;
+  box-shadow:
+    0 10px 24px rgb(15 23 42 / 10%);
+}
+
+/* สถานะใช้สีอ่อนมาก */
+.auction-party-status {
+  color: #475569;
+  border-color: #d7dee8;
+  background: #f8fafc;
+}
+
+.auction-party-status.ready {
+  color: #3f5f4a;
+  border-color: #d7e5dc;
+  background: #f5f8f6;
+}
+
+.auction-party-status.sold {
+  color: #745d3d;
+  border-color: #e7dfd2;
+  background: #faf8f4;
+}
+
+.auction-party-status.waiting {
+  color: #765050;
+  border-color: #eadada;
+  background: #faf6f6;
+}
+
+/* Select ทั้งหมดโทนเดียว */
+.auction-card-field select,
+.auction-card-field:first-child select,
+.auction-party-card.sold
+.auction-card-field:nth-child(2)
+select {
+  color: #1e293b;
+  border-color: #d7dee8;
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent 50%,
+      #64748b 50%
+    ),
+    linear-gradient(
+      135deg,
+      #64748b 50%,
+      transparent 50%
+    ),
+    linear-gradient(
+      to right,
+      #e2e8f0,
+      #e2e8f0
+    );
+  box-shadow:
+    0 2px 5px rgb(15 23 42 / 4%);
+}
+
+.auction-card-field select:hover {
+  border-color: #aeb9c7;
+  box-shadow:
+    0 4px 10px rgb(15 23 42 / 7%);
+}
+
+.auction-card-field select:focus {
+  border-color: #64748b;
+  box-shadow:
+    0 0 0 3px rgb(100 116 139 / 12%);
+}
+
+/* ไอเทมขาวทั้งหมด */
+.auction-item-field,
+.auction-item-field.card,
+.auction-item-field.white,
+.auction-item-field.red {
+  border-color: #dfe5ec;
+  background: #ffffff;
+}
+
+.auction-item-field input {
+  color: #1e293b;
+  border-color: #d7dee8;
+  background: #f8fafc;
+}
+
+.auction-item-title {
+  color: #64748b;
+}
+
+.auction-item-title img {
+  width: 30px;
+  height: 30px;
+  filter:
+    drop-shadow(
+      0 2px 2px rgb(15 23 42 / 10%)
+    );
+}
+
+/* Footer กลาง ๆ */
+.auction-party-card-footer {
+  border-top-color: #e5eaf0;
+  background: #fafbfc;
+}
+
+.auction-party-card-footer strong {
+  color: #475569;
+}
+/* =========================================================
+   AUCTION V2 — CLEAN NEUTRAL CARD
+========================================================= */
+
+.auction-v2-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.auction-v2-card {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid #d8e0ea;
+  border-top: 4px solid #64748b;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow:
+    0 6px 18px rgb(15 23 42 / 7%);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.auction-v2-card:hover {
+  border-color: #b8c4d2;
+  box-shadow:
+    0 12px 26px rgb(15 23 42 / 11%);
+  transform: translateY(-3px);
+}
+
+.auction-v2-card.is-sold {
+  border-top-color: #9a7b4f;
+}
+
+.auction-v2-card.needs-owner {
+  border-top-color: #9a6262;
+}
+
+.auction-v2-header {
+  display: flex;
+  min-height: 82px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.auction-v2-eyebrow {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.auction-v2-header h3 {
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 22px;
+}
+
+.auction-v2-status {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 999px;
+  color: #566174;
+  background: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.auction-v2-status.ready {
+  color: #46604f;
+  border-color: #d8e5dc;
+  background: #f6f9f7;
+}
+
+.auction-v2-status.sold {
+  color: #715c3f;
+  border-color: #e6ded1;
+  background: #faf8f5;
+}
+
+.auction-v2-status.waiting {
+  color: #755252;
+  border-color: #eadcdc;
+  background: #faf7f7;
+}
+
+.auction-v2-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
+}
+
+.auction-v2-person-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.auction-v2-field-label{
+    font-size:11px;
+    color:#94a3b8;
+    font-weight:700;
+}
+
+.auction-v2-field-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+.auction-v2-person-field select {
+  width: 100%;
+  height: 52px;
+  padding: 0 38px 0 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  outline: none;
+  background-color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.auction-v2-person-field select:hover {
+  border-color: #94a3b8;
+}
+
+.auction-v2-person-field select:focus {
+  border-color: #64748b;
+  box-shadow:
+    0 0 0 4px rgb(100 116 139 / 12%);
+  transform: translateY(-1px);
+}
+
+.auction-v2-items {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  padding-top: 15px;
+  border-top: 1px dashed #d8e0ea;
+}
+
+.auction-v2-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 7px;
+  border: 1px solid #dce3eb;
+  border-radius: 11px;
+  background: #fbfcfd;
+}
+
+.auction-v2-item img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter:
+    drop-shadow(
+      0 2px 3px rgb(15 23 42 / 10%)
+    );
+}
+
+.auction-v2-item span {
+  overflow: hidden;
+  color: #536074;
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auction-v2-item input {
+  width: 100%;
+  height: 39px;
+  padding: 5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  color: #111827;
+  background: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.auction-v2-item input:focus {
+  border-color: #64748b;
+  box-shadow:
+    0 0 0 3px rgb(100 116 139 / 11%);
+}
+
+.auction-v2-footer {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 18px;
+  border-top: 1px solid #e5eaf0;
+  color: #64748b;
+  background: #fafbfc;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.auction-v2-footer strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #334155;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1450px) {
+  .auction-v2-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1050px) {
+  .auction-v2-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .auction-v2-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* คนที่ใช้สิทธิจริง */
+.auction-v2-person-field select.auction-v2-active-user {
+  color: #0f172a;
+  border-color: #64748b;
+  background: #f8fafc;
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow:
+    0 3px 10px rgb(15 23 42 / 9%);
+}
+
+/* ช่องที่ยังไม่มีผู้ซื้อสิทธิ */
+.auction-v2-person-field select.auction-v2-muted-user {
+  color: #94a3b8;
+  background: #ffffff;
+  font-weight: 600;
+}
+
+/* ช่อง Owner ตอนขายสิทธิแล้ว ให้ลดความเด่นลง */
+.auction-v2-card.is-sold
+.auction-v2-person-field:first-child
+select {
+  color: #64748b;
+  border-color: #d8e0ea;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
