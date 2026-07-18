@@ -60,6 +60,12 @@ interface UseGuildLeagueAuctionResult {
     value: number,
   ) => void;
 
+  setAllCounts: (
+    cardCount: number,
+    whiteFeatherCount: number,
+    redFeatherCount: number,
+  ) => void;
+
   saveCurrentAuction: () => Promise<boolean>;
 }
 
@@ -122,15 +128,16 @@ export function useGuildLeagueAuction({
             eventDate,
           ),
         ]);
-        const safeAuctionParties =
-  Array.isArray(auctionParties)
-    ? auctionParties
-    : [];
 
-const safeSavedAuction =
-  Array.isArray(savedAuction)
-    ? savedAuction
-    : [];
+        const safeAuctionParties =
+          Array.isArray(auctionParties)
+            ? auctionParties
+            : [];
+
+        const safeSavedAuction =
+          Array.isArray(savedAuction)
+            ? savedAuction
+            : [];
 
         const savedAuctionByParty =
           new Map(
@@ -144,7 +151,7 @@ const safeSavedAuction =
 
         const partyByNumber =
           new Map(
-safeAuctionParties.map(
+            safeAuctionParties.map(
               (party) => [
                 party.party,
                 party,
@@ -341,6 +348,40 @@ safeAuctionParties.map(
     );
   }
 
+  function setAllCounts(
+    cardCount: number,
+    whiteFeatherCount: number,
+    redFeatherCount: number,
+  ): void {
+    const normalizedCardCount =
+      normalizeCount(cardCount);
+
+    const normalizedWhiteFeatherCount =
+      normalizeCount(
+        whiteFeatherCount,
+      );
+
+    const normalizedRedFeatherCount =
+      normalizeCount(
+        redFeatherCount,
+      );
+
+    setAuctionRows(
+      (currentRows) =>
+        currentRows.map((row) => ({
+          ...row,
+          cardCount:
+            normalizedCardCount,
+          whiteFeatherCount:
+            normalizedWhiteFeatherCount,
+          redFeatherCount:
+            normalizedRedFeatherCount,
+        })),
+    );
+
+    setSaveMessage('');
+  }
+
   async function saveCurrentAuction(): Promise<boolean> {
     if (!eventDate) {
       setErrorMessage(
@@ -411,6 +452,7 @@ safeAuctionParties.map(
     setCardCount,
     setWhiteFeatherCount,
     setRedFeatherCount,
+    setAllCounts,
     saveCurrentAuction,
   };
 }
