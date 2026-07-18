@@ -42,9 +42,15 @@ function getMemberClass(
   member: Member,
   mode: PartyMode,
 ): string {
-  return mode === 'guildLeague'
-    ? member.guildLeagueClass
-    : member.overrunClass;
+  if (mode === 'guildLeague') {
+    return member.guildLeagueClass;
+  }
+
+  if (mode === 'overrun') {
+    return member.overrunClass;
+  }
+
+  return '';
 }
 
 export function MemberPanel({
@@ -178,23 +184,31 @@ export function MemberPanel({
           }
         />
 
-        <select
-          value={selectedClass}
-          onChange={(event) =>
-            setSelectedClass(event.target.value)
-          }
-        >
-          <option value="">ทุกอาชีพ</option>
-
-          {classOptions.map((className) => (
-            <option
-              key={className}
-              value={className}
-            >
-              {className}
+        {mode !== 'auctionParty' && (
+          <select
+            value={selectedClass}
+            onChange={(event) =>
+              setSelectedClass(
+                event.target.value,
+              )
+            }
+          >
+            <option value="">
+              ทุกอาชีพ
             </option>
-          ))}
-        </select>
+
+            {classOptions.map(
+              (className) => (
+                <option
+                  key={className}
+                  value={className}
+                >
+                  {className}
+                </option>
+              ),
+            )}
+          </select>
+        )}
       </div>
 
       <MemberList

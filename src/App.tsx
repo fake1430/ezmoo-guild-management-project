@@ -70,10 +70,12 @@ function App() {
     );
   }, [parties]);
 
-  const modeLabel =
-    mode === 'guildLeague'
-      ? 'Guild League'
-      : 'Overrun';
+const modeLabel =
+  mode === 'guildLeague'
+    ? 'Guild League'
+    : mode === 'overrun'
+      ? 'Overrun'
+      : 'Auction Party';
 
   function handleAddParty(): void {
     setEditableParties(
@@ -288,7 +290,9 @@ function App() {
       const sheetName =
         mode === 'guildLeague'
           ? 'GuildLeague'
-          : 'Overrun';
+          : mode === 'overrun'
+            ? 'Overrun'
+            : 'AuctionParty';
 
       const message =
         await saveParties(
@@ -480,6 +484,20 @@ function App() {
               }
             >
               Overrun
+            </button>
+
+            <button
+              type="button"
+              className={
+                mode === 'auctionParty'
+                  ? 'active'
+                  : ''
+              }
+              onClick={() =>
+                setMode('auctionParty')
+              }
+            >
+              Auction Party
             </button>
           </nav>
 

@@ -65,16 +65,23 @@ function getMemberClass(
 ): string {
   const member = members.find(
     (currentMember) =>
-      currentMember.ign === memberName,
+      currentMember.ign ===
+      memberName,
   );
 
   if (!member) {
     return '';
   }
 
-  return mode === 'guildLeague'
-    ? member.guildLeagueClass
-    : member.overrunClass;
+  if (mode === 'guildLeague') {
+    return member.guildLeagueClass;
+  }
+
+  if (mode === 'overrun') {
+    return member.overrunClass;
+  }
+
+  return '';
 }
 
 export function PartyBoard({
@@ -95,6 +102,13 @@ export function PartyBoard({
   onDropMember,
   onSwapParties,
 }: PartyBoardProps) {
+    const isAuctionParty =
+    mode === 'auctionParty';
+
+  const boardTitle =
+    isAuctionParty
+      ? modeLabel
+      : `${modeLabel} 40 vs 40`;
   const captureAreaRef =
     useRef<HTMLDivElement | null>(null);
 
@@ -448,7 +462,8 @@ function handleMemberDragLeave(
                 startIndex + localIndex;
 
               const displayPartyNumber =
-                localIndex + 1;
+              party.party ??
+              actualPartyIndex + 1;
 
               const slots =
                 normalizeSlots(party.slots);
@@ -594,19 +609,21 @@ function handleMemberDragLeave(
                                   ✕
                                 </button>
 
-                                <span
-                                  className="party-member-class"
-                                  style={{
-                                    backgroundColor:
-                                      getClassColor(
-                                        className ||
-                                          'ไม่ระบุอาชีพ',
-                                      ),
-                                  }}
-                                >
-                                  {className ||
-                                    'ไม่ระบุอาชีพ'}
-                                </span>
+                                  {mode !== 'auctionParty' && (
+                                    <span
+                                      className="party-member-class"
+                                      style={{
+                                        backgroundColor:
+                                          getClassColor(
+                                            className ||
+                                              'ไม่ระบุอาชีพ',
+                                          ),
+                                      }}
+                                    >
+                                      {className ||
+                                        'ไม่ระบุอาชีพ'}
+                                    </span>
+                                  )}
 
                                 <strong>
                                   {memberName}
@@ -652,7 +669,7 @@ function handleMemberDragLeave(
     <section className="party-board">
       <div className="party-toolbar">
         <div>
-          <h2>{modeLabel} 40 vs 40</h2>
+          <h2>{boardTitle}</h2>
 
           <p>
             {parties.length} ปาร์ตี้ ·
@@ -774,13 +791,17 @@ function handleMemberDragLeave(
             className="compact-raid-grid capture-area"
           >
             {renderRaidColumn({
-              title: 'Raid A',
+              title: isAuctionParty
+                ? 'Party 1–8'
+                : 'Raid A',
               parties: raidAParties,
               startIndex: 0,
             })}
 
             {renderRaidColumn({
-              title: 'Raid B',
+              title: isAuctionParty
+                ? 'Party 9–16'
+                : 'Raid B',
               parties: raidBParties,
               startIndex: 8,
             })}

@@ -60,7 +60,10 @@ export function getMembers(): Promise<Member[]> {
 }
 
 export function getParties(
-  sheetName: 'GuildLeague' | 'Overrun',
+  sheetName:
+    | 'GuildLeague'
+    | 'Overrun'
+    | 'AuctionParty',
 ): Promise<Party[]> {
   return request<Party[]>('party', {
     sheet: sheetName,
@@ -68,7 +71,10 @@ export function getParties(
 }
 
 export async function saveParties(
-  sheetName: 'GuildLeague' | 'Overrun',
+  sheetName:
+    | 'GuildLeague'
+    | 'Overrun'
+    | 'AuctionParty',
   parties: Party[],
 ): Promise<string> {
   const response = await fetch(API_URL, {

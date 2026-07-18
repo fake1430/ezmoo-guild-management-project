@@ -15,9 +15,15 @@ function getMemberClass(
   member: Member,
   mode: PartyMode,
 ): string {
-  return mode === 'guildLeague'
-    ? member.guildLeagueClass
-    : member.overrunClass;
+  if (mode === 'guildLeague') {
+    return member.guildLeagueClass;
+  }
+
+  if (mode === 'overrun') {
+    return member.overrunClass;
+  }
+
+  return '';
 }
 
 function handleDragStart(
@@ -54,8 +60,10 @@ export function MemberList({
     <div className="member-list">
       {members.map((member) => {
         const className =
-          getMemberClass(member, mode) ||
-          'ไม่ระบุอาชีพ';
+          getMemberClass(
+            member,
+            mode,
+          ).trim();
 
         const isAssigned =
           assignedMemberNames.has(member.ign);
@@ -78,14 +86,21 @@ export function MemberList({
                 : 'ลากสมาชิกลงช่องปาร์ตี้'
             }
           >
-            <span
-              className="class-badge"
-              style={{
-                backgroundColor: getClassColor(className),
-              }}
-            >
-              {className}
-            </span>
+              {mode !== 'auctionParty' && (
+                <span
+                  className="class-badge"
+                  style={{
+                    backgroundColor:
+                      getClassColor(
+                        className ||
+                          'ไม่ระบุอาชีพ',
+                      ),
+                  }}
+                >
+                  {className ||
+                    'ไม่ระบุอาชีพ'}
+                </span>
+              )}
 
             <strong className="member-name">
               {member.ign}

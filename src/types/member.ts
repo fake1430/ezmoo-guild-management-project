@@ -1,4 +1,7 @@
-export type PartyMode = 'guildLeague' | 'overrun';
+export type PartyMode =
+  | 'guildLeague'
+  | 'overrun'
+  | 'auctionParty';
 
 export interface Member {
   memberId: string;

@@ -22,10 +22,12 @@ export function useParties(
       setIsLoading(true);
       setErrorMessage('');
 
-      const sheetName =
-        mode === 'guildLeague'
-          ? 'GuildLeague'
-          : 'Overrun';
+  const sheetName =
+    mode === 'guildLeague'
+      ? 'GuildLeague'
+      : mode === 'overrun'
+        ? 'Overrun'
+        : 'AuctionParty';
 
       const data = await getParties(sheetName);
       setParties(data);
