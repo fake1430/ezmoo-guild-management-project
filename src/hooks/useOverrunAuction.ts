@@ -47,9 +47,16 @@ interface UseOverrunAuctionResult {
   addMemberToQueue: (memberName: string) => void;
   replaceQueue: (memberNames: string[]) => void;
   removeMemberFromQueue: (queueIndex: number) => void;
-  moveMemberInQueue: (sourceIndex: number, targetIndex: number) => void;
+  moveMemberInQueue: (
+    sourceIndex: number,
+    targetIndex: number,
+  ) => void;
   saveCurrentQueue: () => Promise<boolean>;
-  setSoldTo: (queueOrder: number, soldTo: string) => void;
+  saveAuction: () => Promise<boolean>;
+  setSoldTo: (
+    queueOrder: number,
+    soldTo: string,
+  ) => void;
   setCardCount: (queueOrder: number, value: number) => void;
   setWhiteFeatherCount: (queueOrder: number, value: number) => void;
   setRedFeatherCount: (queueOrder: number, value: number) => void;
@@ -402,9 +409,12 @@ export function useOverrunAuction({
     whiteFeatherCount: number,
     redFeatherCount: number,
   ): void {
-    const normalizedCardCount = normalizeCount(cardCount);
+    const normalizedCardCount =
+      normalizeCount(cardCount);
+
     const normalizedWhiteFeatherCount =
       normalizeCount(whiteFeatherCount);
+
     const normalizedRedFeatherCount =
       normalizeCount(redFeatherCount);
 
@@ -412,13 +422,68 @@ export function useOverrunAuction({
       currentRows.map((row) => ({
         ...row,
         cardCount: normalizedCardCount,
-        whiteFeatherCount: normalizedWhiteFeatherCount,
-        redFeatherCount: normalizedRedFeatherCount,
+        whiteFeatherCount:
+          normalizedWhiteFeatherCount,
+        redFeatherCount:
+          normalizedRedFeatherCount,
       })),
     );
 
     setPreview(null);
     setSaveMessage('');
+  }
+
+  async function saveAuction(): Promise<boolean> {
+    if (!eventDate) {
+      setErrorMessage('กรุณาเลือกวันที่');
+      return false;
+    }
+
+    if (auctionRows.length === 0) {
+      setErrorMessage(
+        'ไม่มีข้อมูลประมูลให้บันทึก',
+      );
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      setErrorMessage('');
+      setSaveMessage('');
+
+      const auction: OverrunAuctionSaveItem[] =
+        auctionRows.map((row) => ({
+          queueOrder: row.queueOrder,
+          queueOwner:
+            row.queueOwner.trim(),
+          soldTo: row.soldTo.trim(),
+          cardCount: row.cardCount,
+          whiteFeatherCount:
+            row.whiteFeatherCount,
+          redFeatherCount:
+            row.redFeatherCount,
+        }));
+
+      const message =
+        await saveOverrunAuction(
+          eventDate,
+          auction,
+        );
+
+      setSaveMessage(message);
+
+      return true;
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'ไม่สามารถบันทึกข้อมูลประมูล Overrun ได้',
+      );
+
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function createPreview(
@@ -495,28 +560,29 @@ export function useOverrunAuction({
         queueAfter: preview.queueAfter,
       };
 
-    const auction: OverrunAuctionSaveItem[] =
-    auctionRows
-        .filter((row) => {
-        if (preview.result !== 'lose') {
-            return true;
-        }
+      const auction: OverrunAuctionSaveItem[] =
+        auctionRows
+          .filter((row) => {
+            if (preview.result !== 'lose') {
+              return true;
+            }
 
-        return (
-            row.queueOwner.trim() !==
-            preview.noItemMember.trim()
-        );
-        })
-        .map((row) => ({
-        queueOrder: row.queueOrder,
-        queueOwner: row.queueOwner.trim(),
-        soldTo: row.soldTo.trim(),
-        cardCount: row.cardCount,
-        whiteFeatherCount:
-            row.whiteFeatherCount,
-        redFeatherCount:
-            row.redFeatherCount,
-        }));
+            return (
+              row.queueOwner.trim() !==
+              preview.noItemMember.trim()
+            );
+          })
+          .map((row) => ({
+            queueOrder: row.queueOrder,
+            queueOwner:
+              row.queueOwner.trim(),
+            soldTo: row.soldTo.trim(),
+            cardCount: row.cardCount,
+            whiteFeatherCount:
+              row.whiteFeatherCount,
+            redFeatherCount:
+              row.redFeatherCount,
+          }));
 
       await saveOverrunAuction(
         eventDate,
@@ -565,6 +631,7 @@ export function useOverrunAuction({
     removeMemberFromQueue,
     moveMemberInQueue,
     saveCurrentQueue,
+    saveAuction,
     setSoldTo,
     setCardCount,
     setWhiteFeatherCount,

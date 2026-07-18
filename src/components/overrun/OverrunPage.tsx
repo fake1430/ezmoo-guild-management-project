@@ -254,6 +254,7 @@ export function OverrunPage({
     removeMemberFromQueue,
     moveMemberInQueue,
     saveCurrentQueue,
+    saveAuction,
     setSoldTo,
     setCardCount,
     setWhiteFeatherCount,
@@ -549,28 +550,47 @@ export function OverrunPage({
             📦 ตั้งค่าจำนวน
           </button>
 
-          <button
+            <button
             type="button"
             className="overrun-manage-button"
             onClick={() =>
-              setIsQueueManagerOpen(true)
+                setIsQueueManagerOpen(true)
             }
             disabled={isLoading}
-          >
+            >
             ☰ จัดการคิว
-          </button>
+            </button>
 
-          <button
+            <button
+            type="button"
+            className="overrun-save-button"
+            onClick={() =>
+                void saveAuction()
+            }
+            disabled={
+                isLoading ||
+                isSaving ||
+                isConfirming ||
+                auctionRows.length === 0
+            }
+            >
+            {isSaving
+                ? 'กำลังบันทึก...'
+                : '💾 บันทึก'}
+            </button>
+
+            <button
             type="button"
             className="overrun-confirm-button"
             onClick={handleCreatePreview}
             disabled={
-              isLoading ||
-              isConfirming ||
-              !selectedResult ||
-              currentQueue.length <
+            isLoading ||
+            isSaving ||
+            isConfirming ||
+            !selectedResult ||
+            currentQueue.length <
                 CURRENT_QUEUE_SIZE ||
-              (selectedResult === 'lose' &&
+            (selectedResult === 'lose' &&
                 !noItemMember)
             }
           >
@@ -932,13 +952,27 @@ export function OverrunPage({
                       ).padStart(2, '0')}
                     </div>
 
-                    <div className="overrun-discord-name">
-                      {row.queueOwner || '—'}
-                    </div>
+                        <div
+                        className={[
+                            'overrun-discord-name',
+                            row.soldTo.trim() !== ''
+                            ? 'is-muted'
+                            : 'is-active',
+                        ].join(' ')}
+                        >
+                        {row.queueOwner || '—'}
+                        </div>
 
-                    <div className="overrun-discord-name">
-                      {row.soldTo || '—'}
-                    </div>
+                        <div
+                        className={[
+                            'overrun-discord-name',
+                            row.soldTo.trim() !== ''
+                            ? 'is-active'
+                            : 'is-placeholder',
+                        ].join(' ')}
+                        >
+                        {row.soldTo || '—'}
+                        </div>
 
                     <div className="overrun-discord-count">
                       {row.cardCount}

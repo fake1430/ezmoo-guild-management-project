@@ -853,13 +853,27 @@ export function AuctionPage({
                       P{row.partyNo}
                     </div>
 
-                    <div className="auction-discord-name">
-                      {row.queueOwner || '—'}
-                    </div>
+                      <div
+                        className={[
+                          'auction-discord-name',
+                          row.soldTo.trim() !== ''
+                            ? 'is-muted'
+                            : 'is-active',
+                        ].join(' ')}
+                      >
+                        {row.queueOwner || '—'}
+                      </div>
 
-                    <div className="auction-discord-name">
-                      {row.soldTo || '—'}
-                    </div>
+                      <div
+                        className={[
+                          'auction-discord-name',
+                          row.soldTo.trim() !== ''
+                            ? 'is-active'
+                            : 'is-placeholder',
+                        ].join(' ')}
+                      >
+                        {row.soldTo || '—'}
+                      </div>
 
                     <div className="auction-discord-count">
                       {row.cardCount}

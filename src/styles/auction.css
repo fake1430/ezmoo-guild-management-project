@@ -2102,6 +2102,21 @@ select {
   white-space: nowrap;
 }
 
+.auction-discord-name.is-active {
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.auction-discord-name.is-muted {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.auction-discord-name.is-placeholder {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
 .auction-discord-count {
   color: #0f172a;
   font-size: 20px;
