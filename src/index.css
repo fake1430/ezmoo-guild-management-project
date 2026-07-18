@@ -1345,7 +1345,8 @@ button:disabled {
 @media (max-width: 600px) {
   .main-navigation {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
   }
 }
 .attendance-page {
@@ -1870,4 +1871,727 @@ button:disabled {
   border: none;
 
   border-top: 1px solid #e2e8f0;
+}
+/* =========================================================
+   AUCTION
+========================================================= */
+
+.auction-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.auction-toolbar,
+.auction-controls,
+.auction-table-container {
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 7%);
+}
+
+.auction-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.auction-toolbar h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.auction-toolbar p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.auction-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.auction-reload-button,
+.auction-save-button,
+.auction-error button {
+  padding: 9px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  background: #ffffff;
+}
+
+.auction-reload-button:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.auction-save-button {
+  color: #ffffff;
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.auction-save-button:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.auction-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.auction-controls label {
+  display: flex;
+  min-width: 230px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auction-controls label span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auction-controls input {
+  width: 100%;
+  height: 44px;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+}
+
+.auction-controls input:focus {
+  border-color: #64748b;
+  box-shadow: 0 0 0 3px rgb(100 116 139 / 12%);
+}
+
+.auction-controls small {
+  min-height: 16px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.auction-warning {
+  padding: 11px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  color: #9a3412;
+  background: #fff7ed;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auction-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.auction-summary-card {
+  display: flex;
+  min-height: 86px;
+  justify-content: space-between;
+  flex-direction: column;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 5%);
+}
+
+.auction-summary-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auction-summary-card strong {
+  color: #334155;
+  font-size: 26px;
+}
+
+.auction-summary-card:nth-child(1) {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.auction-summary-card:nth-child(1) strong {
+  color: #c2410c;
+}
+
+.auction-summary-card:nth-child(2) {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.auction-summary-card:nth-child(2) strong {
+  color: #1d4ed8;
+}
+
+.auction-summary-card:nth-child(3) {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.auction-summary-card:nth-child(4) {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.auction-summary-card:nth-child(4) strong {
+  color: #b91c1c;
+}
+
+.auction-success,
+.auction-error,
+.auction-status {
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.auction-success {
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.auction-error {
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.auction-error p {
+  margin: 0 0 10px;
+}
+
+.auction-status {
+  color: #64748b;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+  text-align: center;
+}
+
+.auction-table-container {
+  overflow: hidden;
+}
+
+.auction-table-header,
+.auction-row {
+  display: grid;
+  grid-template-columns:
+    70px
+    minmax(190px, 1.2fr)
+    minmax(190px, 1.2fr)
+    110px
+    120px
+    120px;
+  gap: 12px;
+  align-items: center;
+}
+
+.auction-table-header {
+  padding: 11px 14px;
+  color: #64748b;
+  border-bottom: 1px solid #dbe4f0;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.auction-row {
+  padding: 11px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.auction-row:last-child {
+  border-bottom: 0;
+}
+
+.auction-row:hover {
+  background: #f8fafc;
+}
+
+.auction-row.sold {
+  border-left: 4px solid #f59e0b;
+  background: #fffaf0;
+}
+
+.auction-row.sold:hover {
+  background: #fff7ed;
+}
+
+.auction-party-number {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 9px;
+  color: #ffffff;
+  background: #3b82f6;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.auction-row select,
+.auction-row input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 8px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.auction-row select:focus,
+.auction-row input:focus {
+  border-color: #64748b;
+  box-shadow: 0 0 0 3px rgb(100 116 139 / 12%);
+}
+
+.auction-row select:first-of-type {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.auction-row.sold select:nth-of-type(2) {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.auction-row input[type="number"] {
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .auction-summary-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .auction-table-header {
+    display: none;
+  }
+
+  .auction-row {
+    grid-template-columns:
+      70px
+      minmax(180px, 1fr)
+      minmax(180px, 1fr);
+  }
+
+  .auction-row input[type="number"] {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .auction-toolbar,
+  .auction-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auction-toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .auction-controls label {
+    min-width: 0;
+  }
+
+  .auction-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .auction-row {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .auction-row select,
+  .auction-row input {
+    grid-column: 2;
+  }
+
+  .auction-party-number {
+    grid-row: 1 / span 5;
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auction-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-toolbar-actions {
+    grid-template-columns: 1fr;
+  }
+}
+/* =========================================================
+   AUCTION — DEPTH & POLISH
+========================================================= */
+
+.auction-page {
+  gap: 18px;
+}
+
+/* Header ให้เป็น Hero เล็ก ๆ */
+.auction-toolbar {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 24px;
+  border: 0;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      135deg,
+      #1e293b 0%,
+      #334155 55%,
+      #475569 100%
+    );
+  box-shadow:
+    0 12px 28px rgb(15 23 42 / 18%);
+}
+
+.auction-toolbar::after {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -40px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background:
+    rgb(255 255 255 / 7%);
+  pointer-events: none;
+}
+
+.auction-toolbar h2 {
+  position: relative;
+  z-index: 1;
+  font-size: 23px;
+}
+
+.auction-toolbar p {
+  position: relative;
+  z-index: 1;
+  color: #cbd5e1;
+}
+
+.auction-toolbar-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.auction-reload-button {
+  color: #ffffff;
+  border-color:
+    rgb(255 255 255 / 24%);
+  background:
+    rgb(255 255 255 / 10%);
+  backdrop-filter: blur(4px);
+}
+
+.auction-reload-button:hover:not(:disabled) {
+  border-color:
+    rgb(255 255 255 / 42%);
+  background:
+    rgb(255 255 255 / 18%);
+}
+
+.auction-save-button {
+  border-color: #22c55e;
+  background:
+    linear-gradient(
+      135deg,
+      #22c55e,
+      #15803d
+    );
+  box-shadow:
+    0 6px 14px
+    rgb(22 163 74 / 28%);
+}
+
+.auction-save-button:hover:not(:disabled) {
+  background:
+    linear-gradient(
+      135deg,
+      #16a34a,
+      #166534
+    );
+  transform: translateY(-1px);
+}
+
+/* วันที่ให้เหมือน Control Card */
+.auction-controls {
+  padding: 16px 20px;
+  border-color: #cbd5e1;
+  box-shadow:
+    0 7px 18px rgb(15 23 42 / 8%);
+}
+
+.auction-controls input {
+  font-weight: 700;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.auction-controls input:hover {
+  border-color: #94a3b8;
+}
+
+.auction-controls input:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 4px
+    rgb(59 130 246 / 13%);
+  transform: translateY(-1px);
+}
+
+/* Summary Card ให้มีมิติ */
+.auction-summary-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 102px;
+  padding: 17px;
+  border-width: 1px;
+  box-shadow:
+    0 7px 18px rgb(15 23 42 / 8%);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.auction-summary-card::after {
+  content: "";
+  position: absolute;
+  right: -22px;
+  bottom: -32px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background:
+    rgb(255 255 255 / 55%);
+}
+
+.auction-summary-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 25px rgb(15 23 42 / 13%);
+}
+
+.auction-summary-card span,
+.auction-summary-card strong {
+  position: relative;
+  z-index: 1;
+}
+
+.auction-summary-card strong {
+  font-size: 30px;
+}
+
+/* พื้นหลังส่วนรายการ */
+.auction-table-container {
+  padding: 12px;
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  box-shadow:
+    0 10px 24px rgb(15 23 42 / 9%);
+}
+
+/* Header ลอยแยกจากแถว */
+.auction-table-header {
+  margin-bottom: 9px;
+  padding: 11px 13px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow:
+    0 3px 9px rgb(15 23 42 / 5%);
+}
+
+/* แต่ละแถวให้เป็น Card */
+.auction-row {
+  margin-top: 8px;
+  padding: 12px 13px;
+  border: 1px solid #dbe4f0;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow:
+    0 3px 10px rgb(15 23 42 / 6%);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+.auction-row:last-child {
+  border-bottom:
+    1px solid #dbe4f0;
+}
+
+.auction-row:hover {
+  z-index: 1;
+  border-color: #93c5fd;
+  background: #ffffff;
+  box-shadow:
+    0 9px 20px rgb(37 99 235 / 10%);
+  transform: translateY(-2px);
+}
+
+/* แถวขายสิทธิเด่นขึ้น */
+.auction-row.sold {
+  border:
+    1px solid #fdba74;
+  border-left:
+    5px solid #f59e0b;
+  background:
+    linear-gradient(
+      90deg,
+      #fff7ed 0%,
+      #ffffff 32%
+    );
+  box-shadow:
+    0 5px 14px
+    rgb(245 158 11 / 11%);
+}
+
+.auction-row.sold:hover {
+  border-color: #fb923c;
+  background:
+    linear-gradient(
+      90deg,
+      #ffedd5 0%,
+      #ffffff 35%
+    );
+  box-shadow:
+    0 10px 22px
+    rgb(245 158 11 / 17%);
+}
+
+/* เลขตี้ให้เหมือน Badge หลัก */
+.auction-party-number {
+  width: 46px;
+  height: 46px;
+  border:
+    1px solid rgb(255 255 255 / 30%);
+  background:
+    linear-gradient(
+      145deg,
+      #60a5fa,
+      #2563eb
+    );
+  box-shadow:
+    0 6px 12px
+    rgb(37 99 235 / 24%);
+  font-size: 17px;
+}
+
+/* ช่องกรอกให้ดูเป็น Interactive มากขึ้น */
+.auction-row select,
+.auction-row input {
+  height: 43px;
+  border-color: #cbd5e1;
+  background: #ffffff;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.auction-row select:hover,
+.auction-row input:hover {
+  border-color: #94a3b8;
+}
+
+.auction-row select:focus,
+.auction-row input:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 4px
+    rgb(59 130 246 / 12%);
+  transform: translateY(-1px);
+}
+
+/* เจ้าของสิทธิ */
+.auction-row select:first-of-type {
+  color: #1e40af;
+  border-color: #93c5fd;
+  background:
+    linear-gradient(
+      180deg,
+      #eff6ff,
+      #ffffff
+    );
+  font-weight: 700;
+}
+
+/* ขายให้ */
+.auction-row.sold select:nth-of-type(2) {
+  color: #9a3412;
+  border-color: #fdba74;
+  background:
+    linear-gradient(
+      180deg,
+      #fff7ed,
+      #ffffff
+    );
+  font-weight: 700;
+}
+
+/* ช่องจำนวน */
+.auction-row input[type="number"] {
+  border-color: #dbe4f0;
+  background: #f8fafc;
+  font-size: 14px;
+}
+
+.auction-row input[type="number"]:focus {
+  background: #ffffff;
+}
+
+@media (max-width: 700px) {
+  .auction-toolbar {
+    padding: 20px;
+  }
+
+  .auction-table-container {
+    padding: 8px;
+  }
+
+  .auction-row {
+    margin-top: 9px;
+    padding: 11px;
+  }
+
+  .auction-party-number {
+    min-height: 100%;
+  }
 }

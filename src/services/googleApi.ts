@@ -6,6 +6,10 @@ import type {
   AttendanceSaveItem,
   LeaveSummary,
 } from '../types/attendance';
+import type {
+  GuildLeagueAuctionRecord,
+  GuildLeagueAuctionSaveItem,
+} from '../types/auction';
 
 
 interface ApiSuccessResponse<T> {
@@ -126,11 +130,28 @@ export function getLeaveSummary(
   month: string,
   eventType: AttendanceEventType,
 ): Promise<LeaveSummary> {
-  return request<LeaveSummary>('getLeaveSummary', {
-    month,
-    eventType,
-  });
+  return request<LeaveSummary>(
+    'getLeaveSummary',
+    {
+      month,
+      eventType,
+    },
+  );
 }
+
+export function getGuildLeagueAuction(
+  eventDate: string,
+): Promise<GuildLeagueAuctionRecord[]> {
+  return request<
+    GuildLeagueAuctionRecord[]
+  >(
+    'getGuildLeagueAuction',
+    {
+      date: eventDate,
+    },
+  );
+}
+
 export async function saveAttendance(
   eventDate: string,
   eventType: AttendanceEventType,
@@ -139,13 +160,55 @@ export async function saveAttendance(
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
+      'Content-Type':
+        'text/plain;charset=utf-8',
     },
     body: JSON.stringify({
       action: 'saveAttendance',
       date: eventDate,
       eventType,
       attendance,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result = (await response.json()) as
+    | {
+        success: true;
+        message: string;
+      }
+    | {
+        success: false;
+        error: string;
+      };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
+}
+
+export async function saveGuildLeagueAuction(
+  eventDate: string,
+  auction: GuildLeagueAuctionSaveItem[],
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':
+        'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action:
+        'saveGuildLeagueAuction',
+      date: eventDate,
+      auction,
     }),
   });
 

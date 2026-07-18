@@ -11,10 +11,14 @@ import type { PartyMode } from './types/member';
 import type { Party } from './types/partyTypes';
 import { saveParties } from './services/googleApi';
 import { AttendancePage } from './components/attendance/AttendancePage';
+import { AuctionPage } from './components/auction/AuctionPage';
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
-type AppPage = 'partyBuilder' | 'attendance';
+type AppPage =
+  | 'partyBuilder'
+  | 'attendance'
+  | 'auction';
 
 function App() {
   const [currentPage, setCurrentPage] =
@@ -450,6 +454,19 @@ const modeLabel =
         >
           Attendance
         </button>
+        <button
+          type="button"
+          className={
+            currentPage === 'auction'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            setCurrentPage('auction')
+          }
+        >
+          Auction
+        </button>
       </nav>
 
       {isPartyPage && (
@@ -586,8 +603,15 @@ const modeLabel =
                     onReloadMembers={reloadMembers}
                   />
                 )}
+                    {currentPage === 'auction' && (
+                      <AuctionPage
+                        members={members}
+                      />
+                    )}
                     </div>
                   );
                 }
+
+                
 
 export default App;
