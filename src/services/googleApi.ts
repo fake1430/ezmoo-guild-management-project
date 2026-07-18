@@ -11,10 +11,11 @@ import type {
   GuildLeagueAuctionSaveItem,
 } from '../types/auction';
 import type {
-  OverrunQueueItem,
   ConfirmOverrunResultPayload,
+  OverrunAuctionRecord,
+  OverrunAuctionSaveItem,
+  OverrunQueueItem,
 } from '../types/overrun';
-
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -26,9 +27,12 @@ interface ApiErrorResponse {
   error: string;
 }
 
-type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+type ApiResponse<T> =
+  | ApiSuccessResponse<T>
+  | ApiErrorResponse;
 
-const API_URL = import.meta.env.VITE_GOOGLE_API_URL;
+const API_URL =
+  import.meta.env.VITE_GOOGLE_API_URL;
 
 if (!API_URL) {
   throw new Error(
@@ -44,23 +48,69 @@ async function request<T>(
 
   url.searchParams.set('action', action);
 
-  Object.entries(parameters).forEach(([key, value]) => {
-    url.searchParams.set(key, value);
-  });
+  Object.entries(parameters).forEach(
+    ([key, value]) => {
+      url.searchParams.set(key, value);
+    },
+  );
 
-  const response = await fetch(url.toString());
+  const response = await fetch(
+    url.toString(),
+  );
 
   if (!response.ok) {
-    throw new Error(`เชื่อมต่อ API ไม่สำเร็จ: ${response.status}`);
+    throw new Error(
+      `เชื่อมต่อ API ไม่สำเร็จ: ${response.status}`,
+    );
   }
 
-  const result = (await response.json()) as ApiResponse<T>;
+  const result =
+    (await response.json()) as ApiResponse<T>;
 
   if ('error' in result) {
-    throw new Error(result.error || 'เกิดข้อผิดพลาดจาก API');
+    throw new Error(
+      result.error ||
+        'เกิดข้อผิดพลาดจาก API',
+    );
   }
 
   return result.data;
+}
+
+async function postRequest(
+  body: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':
+        'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result =
+    (await response.json()) as
+      | {
+          success: true;
+          message: string;
+        }
+      | {
+          success: false;
+          error: string;
+        };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
 }
 
 export function getMembers(): Promise<Member[]> {
@@ -78,56 +128,31 @@ export function getParties(
   });
 }
 
-export async function saveParties(
+export function saveParties(
   sheetName:
     | 'GuildLeague'
     | 'Overrun'
     | 'AuctionParty',
   parties: Party[],
 ): Promise<string> {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      action: 'saveParty',
-      sheet: sheetName,
-      parties,
-    }),
+  return postRequest({
+    action: 'saveParty',
+    sheet: sheetName,
+    parties,
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
-    );
-  }
-
-  const result = (await response.json()) as
-    | {
-        success: true;
-        message: string;
-      }
-    | {
-        success: false;
-        error: string;
-      };
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result.message;
 }
 
 export function getAttendance(
   eventDate: string,
   eventType: AttendanceEventType,
 ): Promise<AttendanceRecord[]> {
-  return request<AttendanceRecord[]>('getAttendance', {
-    date: eventDate,
-    eventType,
-  });
+  return request<AttendanceRecord[]>(
+    'getAttendance',
+    {
+      date: eventDate,
+      eventType,
+    },
+  );
 }
 
 export function getLeaveSummary(
@@ -156,6 +181,17 @@ export function getGuildLeagueAuction(
   );
 }
 
+export function getOverrunAuction(
+  eventDate: string,
+): Promise<OverrunAuctionRecord[]> {
+  return request<OverrunAuctionRecord[]>(
+    'getOverrunAuction',
+    {
+      date: eventDate,
+    },
+  );
+}
+
 export function getOverrunQueue(): Promise<
   OverrunQueueItem[]
 > {
@@ -164,172 +200,55 @@ export function getOverrunQueue(): Promise<
   );
 }
 
-export async function saveAttendance(
+export function saveAttendance(
   eventDate: string,
   eventType: AttendanceEventType,
   attendance: AttendanceSaveItem[],
 ): Promise<string> {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type':
-        'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      action: 'saveAttendance',
-      date: eventDate,
-      eventType,
-      attendance,
-    }),
+  return postRequest({
+    action: 'saveAttendance',
+    date: eventDate,
+    eventType,
+    attendance,
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
-    );
-  }
-
-  const result = (await response.json()) as
-    | {
-        success: true;
-        message: string;
-      }
-    | {
-        success: false;
-        error: string;
-      };
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result.message;
 }
 
-export async function saveGuildLeagueAuction(
+export function saveGuildLeagueAuction(
   eventDate: string,
   auction: GuildLeagueAuctionSaveItem[],
 ): Promise<string> {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type':
-        'text/plain;charset=utf-8',
-    },
-    body: JSON.stringify({
-      action:
-        'saveGuildLeagueAuction',
-      date: eventDate,
-      auction,
-    }),
+  return postRequest({
+    action: 'saveGuildLeagueAuction',
+    date: eventDate,
+    auction,
   });
-
-  
-
-  if (!response.ok) {
-    throw new Error(
-      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
-    );
-  }
-
-  const result = (await response.json()) as
-    | {
-        success: true;
-        message: string;
-      }
-    | {
-        success: false;
-        error: string;
-      };
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result.message;
 }
 
-export async function saveOverrunQueue(
+export function saveOverrunAuction(
+  eventDate: string,
+  auction: OverrunAuctionSaveItem[],
+): Promise<string> {
+  return postRequest({
+    action: 'saveOverrunAuction',
+    date: eventDate,
+    auction,
+  });
+}
+
+export function saveOverrunQueue(
   queue: OverrunQueueItem[],
 ): Promise<string> {
-  const response = await fetch(
-    API_URL,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type':
-          'text/plain;charset=utf-8',
-      },
-      body: JSON.stringify({
-        action:
-          'saveOverrunQueue',
-        queue,
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
-    );
-  }
-
-  const result =
-    (await response.json()) as
-      | {
-          success: true;
-          message: string;
-        }
-      | {
-          success: false;
-          error: string;
-        };
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result.message;
+  return postRequest({
+    action: 'saveOverrunQueue',
+    queue,
+  });
 }
-export async function confirmOverrunResult(
+
+export function confirmOverrunResult(
   payload: ConfirmOverrunResultPayload,
 ): Promise<string> {
-  const response = await fetch(
-    API_URL,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type':
-          'text/plain;charset=utf-8',
-      },
-      body: JSON.stringify({
-        action:
-          'confirmOverrunResult',
-        ...payload,
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
-    );
-  }
-
-  const result =
-    (await response.json()) as
-      | {
-          success: true;
-          message: string;
-        }
-      | {
-          success: false;
-          error: string;
-        };
-
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-
-  return result.message;
+  return postRequest({
+    action: 'confirmOverrunResult',
+    ...payload,
+  });
 }

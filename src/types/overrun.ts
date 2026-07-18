@@ -11,6 +11,31 @@ export interface OverrunQueueData {
   queue: OverrunQueueItem[];
 }
 
+export interface OverrunAuctionRecord {
+  auctionId: string;
+  eventDate: string;
+  eventType: 'Overrun';
+  queueOrder: number;
+  queueOwner: string;
+  soldTo: string;
+  cardCount: number;
+  whiteFeatherCount: number;
+  redFeatherCount: number;
+  updatedAt: string;
+}
+
+export interface OverrunAuctionSaveItem {
+  queueOrder: number;
+  queueOwner: string;
+  soldTo: string;
+  cardCount: number;
+  whiteFeatherCount: number;
+  redFeatherCount: number;
+}
+
+export interface OverrunAuctionRow
+  extends OverrunAuctionSaveItem {}
+
 export interface OverrunPreview {
   result: OverrunResult;
   noItemMember: string;

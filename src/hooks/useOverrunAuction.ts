@@ -7,18 +7,26 @@ import {
 
 import {
   confirmOverrunResult,
+  getOverrunAuction,
   getOverrunQueue,
+  saveOverrunAuction,
   saveOverrunQueue,
 } from '../services/googleApi';
 
 import type {
   ConfirmOverrunResultPayload,
+  OverrunAuctionRow,
+  OverrunAuctionSaveItem,
   OverrunPreview,
   OverrunQueueItem,
   OverrunResult,
 } from '../types/overrun';
 
 const CURRENT_QUEUE_SIZE = 13;
+
+const DEFAULT_CARD_COUNT = 2;
+const DEFAULT_WHITE_FEATHER_COUNT = 8;
+const DEFAULT_RED_FEATHER_COUNT = 10;
 
 interface UseOverrunAuctionParameters {
   eventDate: string;
@@ -28,240 +36,266 @@ interface UseOverrunAuctionResult {
   queue: OverrunQueueItem[];
   currentQueue: OverrunQueueItem[];
   waitingQueue: OverrunQueueItem[];
-
+  auctionRows: OverrunAuctionRow[];
   preview: OverrunPreview | null;
-
   isLoading: boolean;
   isSaving: boolean;
   isConfirming: boolean;
-
   errorMessage: string;
   saveMessage: string;
-
   reloadQueue: () => Promise<void>;
-
-  addMemberToQueue: (
-    memberName: string,
-  ) => void;
-
-  removeMemberFromQueue: (
-    queueIndex: number,
-  ) => void;
-
-  moveMemberInQueue: (
-    sourceIndex: number,
-    targetIndex: number,
-  ) => void;
-
+  addMemberToQueue: (memberName: string) => void;
+  replaceQueue: (memberNames: string[]) => void;
+  removeMemberFromQueue: (queueIndex: number) => void;
+  moveMemberInQueue: (sourceIndex: number, targetIndex: number) => void;
   saveCurrentQueue: () => Promise<boolean>;
-
-  createPreview: (
-    result: OverrunResult,
-    noItemMember?: string,
-  ) => boolean;
-
+  setSoldTo: (queueOrder: number, soldTo: string) => void;
+  setCardCount: (queueOrder: number, value: number) => void;
+  setWhiteFeatherCount: (queueOrder: number, value: number) => void;
+  setRedFeatherCount: (queueOrder: number, value: number) => void;
+  setAllCounts: (
+    cardCount: number,
+    whiteFeatherCount: number,
+    redFeatherCount: number,
+  ) => void;
+  createPreview: (result: OverrunResult, noItemMember?: string) => boolean;
   clearPreview: () => void;
-
   confirmPreview: () => Promise<boolean>;
 }
 
-function normalizeQueue(
-  queue: OverrunQueueItem[],
-): OverrunQueueItem[] {
+function normalizeQueue(queue: OverrunQueueItem[]): OverrunQueueItem[] {
   return queue
     .map((item) => ({
-      queueOrder:
-        Number(item.queueOrder),
-      memberName:
-        String(
-          item.memberName ?? '',
-        ).trim(),
+      queueOrder: Number(item.queueOrder),
+      memberName: String(item.memberName ?? '').trim(),
     }))
-    .filter(
-      (item) =>
-        item.memberName !== '',
-    )
-    .sort(
-      (firstItem, secondItem) =>
-        firstItem.queueOrder -
-        secondItem.queueOrder,
-    )
+    .filter((item) => item.memberName !== '')
+    .sort((a, b) => a.queueOrder - b.queueOrder)
     .map((item, index) => ({
       ...item,
       queueOrder: index + 1,
     }));
 }
 
-function buildQueueItems(
-  memberNames: string[],
-): OverrunQueueItem[] {
-  return memberNames.map(
-    (memberName, index) => ({
-      queueOrder: index + 1,
-      memberName,
-    }),
+function buildQueueItems(memberNames: string[]): OverrunQueueItem[] {
+  return memberNames.map((memberName, index) => ({
+    queueOrder: index + 1,
+    memberName,
+  }));
+}
+
+function normalizeCount(value: number): number {
+  if (!Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  return Math.floor(value);
+}
+
+function buildAuctionRows(
+  currentQueue: OverrunQueueItem[],
+  previousRows: OverrunAuctionRow[] = [],
+): OverrunAuctionRow[] {
+  const previousByOwner = new Map(
+    previousRows.map((row) => [
+      row.queueOwner,
+      row,
+    ]),
   );
+
+  return currentQueue.map((item, index) => {
+    const previous = previousByOwner.get(item.memberName);
+
+    return {
+      queueOrder: index + 1,
+      queueOwner: item.memberName,
+      soldTo: previous?.soldTo ?? '',
+      cardCount: previous?.cardCount ?? DEFAULT_CARD_COUNT,
+      whiteFeatherCount:
+        previous?.whiteFeatherCount ?? DEFAULT_WHITE_FEATHER_COUNT,
+      redFeatherCount:
+        previous?.redFeatherCount ?? DEFAULT_RED_FEATHER_COUNT,
+    };
+  });
 }
 
 export function useOverrunAuction({
   eventDate,
 }: UseOverrunAuctionParameters): UseOverrunAuctionResult {
-  const [
-    queue,
-    setQueue,
-  ] = useState<
-    OverrunQueueItem[]
-  >([]);
+  const [queue, setQueue] = useState<OverrunQueueItem[]>([]);
+  const [auctionRows, setAuctionRows] = useState<OverrunAuctionRow[]>([]);
+  const [preview, setPreview] = useState<OverrunPreview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
 
-  const [
-    preview,
-    setPreview,
-  ] = useState<
-    OverrunPreview | null
-  >(null);
+  const currentQueue = useMemo(
+    () => queue.slice(0, CURRENT_QUEUE_SIZE),
+    [queue],
+  );
 
-  const [
-    isLoading,
-    setIsLoading,
-  ] = useState(true);
-
-  const [
-    isSaving,
-    setIsSaving,
-  ] = useState(false);
-
-  const [
-    isConfirming,
-    setIsConfirming,
-  ] = useState(false);
-
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState('');
-
-  const [
-    saveMessage,
-    setSaveMessage,
-  ] = useState('');
-
-  const currentQueue =
-    useMemo(
-      () =>
-        queue.slice(
-          0,
-          CURRENT_QUEUE_SIZE,
-        ),
-      [queue],
-    );
-
-  const waitingQueue =
-    useMemo(
-      () =>
-        queue.slice(
-          CURRENT_QUEUE_SIZE,
-        ),
-      [queue],
-    );
-
-  const loadQueue =
-    useCallback(
-      async (): Promise<void> => {
-        try {
-          setIsLoading(true);
-          setErrorMessage('');
-          setSaveMessage('');
-          setPreview(null);
-
-          const loadedQueue =
-            await getOverrunQueue();
-
-          setQueue(
-            normalizeQueue(
-              Array.isArray(
-                loadedQueue,
-              )
-                ? loadedQueue
-                : [],
-            ),
-          );
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'ไม่สามารถโหลดคิว Overrun ได้';
-
-          setErrorMessage(message);
-          setQueue([]);
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      [],
-    );
+  const waitingQueue = useMemo(
+    () => queue.slice(CURRENT_QUEUE_SIZE),
+    [queue],
+  );
 
   useEffect(() => {
-    void loadQueue();
-  }, [loadQueue]);
-
-  function updateQueue(
-    nextQueue: OverrunQueueItem[],
-  ): void {
-    setQueue(
-      normalizeQueue(nextQueue),
+    setAuctionRows((currentRows) =>
+      buildAuctionRows(currentQueue, currentRows),
     );
+  }, [currentQueue]);
 
+  const loadOverrun =
+    useCallback(async (): Promise<void> => {
+      if (!eventDate) {
+        setQueue([]);
+        setAuctionRows([]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setErrorMessage('');
+        setSaveMessage('');
+        setPreview(null);
+
+        const [
+          loadedQueue,
+          savedAuction,
+        ] = await Promise.all([
+          getOverrunQueue(),
+          getOverrunAuction(
+            eventDate,
+          ),
+        ]);
+
+        const normalizedQueue =
+          normalizeQueue(
+            Array.isArray(loadedQueue)
+              ? loadedQueue
+              : [],
+          );
+
+        const savedRows =
+          Array.isArray(savedAuction)
+            ? savedAuction.map(
+                (record) => ({
+                  queueOrder:
+                    Number(
+                      record.queueOrder,
+                    ),
+                  queueOwner:
+                    String(
+                      record.queueOwner ??
+                        '',
+                    ).trim(),
+                  soldTo:
+                    String(
+                      record.soldTo ?? '',
+                    ).trim(),
+                  cardCount:
+                    normalizeCount(
+                      Number(
+                        record.cardCount,
+                      ),
+                    ),
+                  whiteFeatherCount:
+                    normalizeCount(
+                      Number(
+                        record.whiteFeatherCount,
+                      ),
+                    ),
+                  redFeatherCount:
+                    normalizeCount(
+                      Number(
+                        record.redFeatherCount,
+                      ),
+                    ),
+                }),
+              )
+            : [];
+
+        setQueue(normalizedQueue);
+        setAuctionRows(
+          buildAuctionRows(
+            normalizedQueue.slice(
+              0,
+              CURRENT_QUEUE_SIZE,
+            ),
+            savedRows,
+          ),
+        );
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'ไม่สามารถโหลดข้อมูล Overrun ได้',
+        );
+
+        setQueue([]);
+        setAuctionRows([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, [eventDate]);
+
+  useEffect(() => {
+    void loadOverrun();
+  }, [loadOverrun]);
+
+  function updateQueue(nextQueue: OverrunQueueItem[]): void {
+    setQueue(normalizeQueue(nextQueue));
     setPreview(null);
     setSaveMessage('');
   }
 
-  function addMemberToQueue(
-    memberName: string,
-  ): void {
-    const cleanMemberName =
-      memberName.trim();
+  function addMemberToQueue(memberName: string): void {
+    const cleanMemberName = memberName.trim();
 
     if (!cleanMemberName) {
       return;
     }
 
-    const alreadyExists =
-      queue.some(
-        (item) =>
-          item.memberName ===
-          cleanMemberName,
-      );
-
-    if (alreadyExists) {
-      setErrorMessage(
-        'สมาชิกคนนี้อยู่ในคิวแล้ว',
-      );
-
+    if (queue.some((item) => item.memberName === cleanMemberName)) {
+      setErrorMessage('สมาชิกคนนี้อยู่ในคิวแล้ว');
       return;
     }
 
     setErrorMessage('');
-
     updateQueue([
       ...queue,
       {
-        queueOrder:
-          queue.length + 1,
-        memberName:
-          cleanMemberName,
+        queueOrder: queue.length + 1,
+        memberName: cleanMemberName,
       },
     ]);
   }
 
-  function removeMemberFromQueue(
-    queueIndex: number,
-  ): void {
-    updateQueue(
-      queue.filter(
-        (_, index) =>
-          index !== queueIndex,
-      ),
-    );
+  function replaceQueue(memberNames: string[]): void {
+    const usedNames = new Set<string>();
+
+    const cleanMemberNames = memberNames
+      .map((name) => name.trim())
+      .filter((name) => {
+        if (!name || usedNames.has(name)) {
+          return false;
+        }
+
+        usedNames.add(name);
+        return true;
+      });
+
+    setQueue(buildQueueItems(cleanMemberNames));
+    setPreview(null);
+    setErrorMessage('');
+    setSaveMessage('');
+  }
+
+  function removeMemberFromQueue(queueIndex: number): void {
+    updateQueue(queue.filter((_, index) => index !== queueIndex));
   }
 
   function moveMemberInQueue(
@@ -279,23 +313,13 @@ export function useOverrunAuction({
     }
 
     const nextQueue = [...queue];
-
-    const [movedItem] =
-      nextQueue.splice(
-        sourceIndex,
-        1,
-      );
+    const [movedItem] = nextQueue.splice(sourceIndex, 1);
 
     if (!movedItem) {
       return;
     }
 
-    nextQueue.splice(
-      targetIndex,
-      0,
-      movedItem,
-    );
-
+    nextQueue.splice(targetIndex, 0, movedItem);
     updateQueue(nextQueue);
   }
 
@@ -305,23 +329,18 @@ export function useOverrunAuction({
       setErrorMessage('');
       setSaveMessage('');
 
-      const message =
-        await saveOverrunQueue(
-          normalizeQueue(queue),
-        );
+      const message = await saveOverrunQueue(normalizeQueue(queue));
 
+      await loadOverrun();
       setSaveMessage(message);
-
-      await loadQueue();
 
       return true;
     } catch (error) {
-      const message =
+      setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'ไม่สามารถบันทึกคิว Overrun ได้';
-
-      setErrorMessage(message);
+          : 'ไม่สามารถบันทึกคิว Overrun ได้',
+      );
 
       return false;
     } finally {
@@ -329,80 +348,124 @@ export function useOverrunAuction({
     }
   }
 
+  function updateAuctionRow(
+    queueOrder: number,
+    update: Partial<OverrunAuctionSaveItem>,
+  ): void {
+    setAuctionRows((currentRows) =>
+      currentRows.map((row) =>
+        row.queueOrder === queueOrder
+          ? {
+              ...row,
+              ...update,
+            }
+          : row,
+      ),
+    );
+
+    setPreview(null);
+    setSaveMessage('');
+  }
+
+  function setSoldTo(queueOrder: number, soldTo: string): void {
+    updateAuctionRow(queueOrder, {
+      soldTo,
+    });
+  }
+
+  function setCardCount(queueOrder: number, value: number): void {
+    updateAuctionRow(queueOrder, {
+      cardCount: normalizeCount(value),
+    });
+  }
+
+  function setWhiteFeatherCount(
+    queueOrder: number,
+    value: number,
+  ): void {
+    updateAuctionRow(queueOrder, {
+      whiteFeatherCount: normalizeCount(value),
+    });
+  }
+
+  function setRedFeatherCount(
+    queueOrder: number,
+    value: number,
+  ): void {
+    updateAuctionRow(queueOrder, {
+      redFeatherCount: normalizeCount(value),
+    });
+  }
+
+  function setAllCounts(
+    cardCount: number,
+    whiteFeatherCount: number,
+    redFeatherCount: number,
+  ): void {
+    const normalizedCardCount = normalizeCount(cardCount);
+    const normalizedWhiteFeatherCount =
+      normalizeCount(whiteFeatherCount);
+    const normalizedRedFeatherCount =
+      normalizeCount(redFeatherCount);
+
+    setAuctionRows((currentRows) =>
+      currentRows.map((row) => ({
+        ...row,
+        cardCount: normalizedCardCount,
+        whiteFeatherCount: normalizedWhiteFeatherCount,
+        redFeatherCount: normalizedRedFeatherCount,
+      })),
+    );
+
+    setPreview(null);
+    setSaveMessage('');
+  }
+
   function createPreview(
     result: OverrunResult,
     noItemMember = '',
   ): boolean {
     if (!eventDate) {
-      setErrorMessage(
-        'กรุณาเลือกวันที่',
-      );
-
+      setErrorMessage('กรุณาเลือกวันที่');
       return false;
     }
 
-    if (
-      currentQueue.length <
-      CURRENT_QUEUE_SIZE
-    ) {
-      setErrorMessage(
-        'คิวรอบปัจจุบันต้องมีครบ 13 คนก่อนยืนยันผล',
-      );
-
+    if (currentQueue.length < CURRENT_QUEUE_SIZE) {
+      setErrorMessage('คิวรอบปัจจุบันต้องมีครบ 13 คนก่อนยืนยันผล');
       return false;
     }
 
-    const queueBefore =
-      queue.map(
-        (item) =>
-          item.memberName,
-      );
-
+    const queueBefore = queue.map((item) => item.memberName);
     let queueAfter: string[];
 
     if (result === 'win') {
-      queueAfter =
-        queueBefore.slice(
-          CURRENT_QUEUE_SIZE,
-        );
+      queueAfter = queueBefore.slice(CURRENT_QUEUE_SIZE);
     } else {
-      const cleanNoItemMember =
-        noItemMember.trim();
-
-      const noItemMemberExists =
-        currentQueue.some(
-          (item) =>
-            item.memberName ===
-            cleanNoItemMember,
-        );
+      const cleanNoItemMember = noItemMember.trim();
 
       if (
         !cleanNoItemMember ||
-        !noItemMemberExists
+        !currentQueue.some(
+          (item) => item.memberName === cleanNoItemMember,
+        )
       ) {
         setErrorMessage(
           'กรุณาเลือกคนที่ไม่ได้ของจาก 13 คนในรอบนี้',
         );
-
         return false;
       }
 
       queueAfter = [
         cleanNoItemMember,
-        ...queueBefore.slice(
-          CURRENT_QUEUE_SIZE,
-        ),
+        ...queueBefore.slice(CURRENT_QUEUE_SIZE),
       ];
     }
 
     setErrorMessage('');
-
     setPreview({
       result,
       noItemMember:
-        result === 'lose'
-          ? noItemMember.trim()
-          : '',
+        result === 'lose' ? noItemMember.trim() : '',
       queueBefore,
       queueAfter,
     });
@@ -424,43 +487,60 @@ export function useOverrunAuction({
       setErrorMessage('');
       setSaveMessage('');
 
-      const payload:
-        ConfirmOverrunResultPayload = {
-          eventDate,
-          result:
-            preview.result,
-          noItemMember:
-            preview.noItemMember,
-          queueBefore:
-            preview.queueBefore,
-          queueAfter:
-            preview.queueAfter,
-        };
+      const payload: ConfirmOverrunResultPayload = {
+        eventDate,
+        result: preview.result,
+        noItemMember: preview.noItemMember,
+        queueBefore: preview.queueBefore,
+        queueAfter: preview.queueAfter,
+      };
+
+    const auction: OverrunAuctionSaveItem[] =
+    auctionRows
+        .filter((row) => {
+        if (preview.result !== 'lose') {
+            return true;
+        }
+
+        return (
+            row.queueOwner.trim() !==
+            preview.noItemMember.trim()
+        );
+        })
+        .map((row) => ({
+        queueOrder: row.queueOrder,
+        queueOwner: row.queueOwner.trim(),
+        soldTo: row.soldTo.trim(),
+        cardCount: row.cardCount,
+        whiteFeatherCount:
+            row.whiteFeatherCount,
+        redFeatherCount:
+            row.redFeatherCount,
+        }));
+
+      await saveOverrunAuction(
+        eventDate,
+        auction,
+      );
 
       const message =
         await confirmOverrunResult(
           payload,
         );
 
-      setQueue(
-        buildQueueItems(
-          preview.queueAfter,
-        ),
-      );
-
+      setQueue(buildQueueItems(preview.queueAfter));
       setPreview(null);
-      setSaveMessage(message);
 
-      await loadQueue();
+      await loadOverrun();
+      setSaveMessage(message);
 
       return true;
     } catch (error) {
-      const message =
+      setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'ไม่สามารถยืนยันผล Overrun ได้';
-
-      setErrorMessage(message);
+          : 'ไม่สามารถยืนยันผล Overrun ได้',
+      );
 
       return false;
     } finally {
@@ -472,25 +552,24 @@ export function useOverrunAuction({
     queue,
     currentQueue,
     waitingQueue,
-
+    auctionRows,
     preview,
-
     isLoading,
     isSaving,
     isConfirming,
-
     errorMessage,
     saveMessage,
-
-    reloadQueue:
-      loadQueue,
-
+    reloadQueue: loadOverrun,
     addMemberToQueue,
+    replaceQueue,
     removeMemberFromQueue,
     moveMemberInQueue,
-
     saveCurrentQueue,
-
+    setSoldTo,
+    setCardCount,
+    setWhiteFeatherCount,
+    setRedFeatherCount,
+    setAllCounts,
     createPreview,
     clearPreview,
     confirmPreview,

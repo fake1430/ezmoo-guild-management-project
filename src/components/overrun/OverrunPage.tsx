@@ -1,7 +1,9 @@
 import {
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { toBlob } from 'html-to-image';
 
 import { useOverrunAuction } from '../../hooks/useOverrunAuction';
 
@@ -10,6 +12,11 @@ import type {
   OverrunQueueItem,
   OverrunResult,
 } from '../../types/overrun';
+import { shuffle } from '../../utils/shuffle';
+
+import cardBookIcon from '../../assets/auction/album-book.png';
+import whiteFeatherIcon from '../../assets/auction/white-feather.png';
+import redFeatherIcon from '../../assets/auction/red-feather.png';
 
 interface OverrunPageProps {
   members: Member[];
@@ -20,18 +27,86 @@ const CURRENT_QUEUE_SIZE = 13;
 
 function getTodayDate(): string {
   const today = new Date();
-
   const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateValue(
+  date: Date,
+): string {
+  const year = date.getFullYear();
 
   const month = String(
-    today.getMonth() + 1,
+    date.getMonth() + 1,
   ).padStart(2, '0');
 
   const day = String(
-    today.getDate(),
+    date.getDate(),
   ).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+function isValidOverrunDate(
+  date: string,
+): boolean {
+  if (!date) {
+    return false;
+  }
+
+  const selectedDate = new Date(
+    `${date}T00:00:00`,
+  );
+
+  if (
+    Number.isNaN(
+      selectedDate.getTime(),
+    )
+  ) {
+    return false;
+  }
+
+  return selectedDate.getDay() === 0;
+}
+
+function getNextOverrunDate(
+  startDate: string,
+): string {
+  const date = new Date(
+    `${startDate}T00:00:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return getTodayDate();
+  }
+
+  for (
+    let daysToAdd = 0;
+    daysToAdd <= 7;
+    daysToAdd += 1
+  ) {
+    const candidate = new Date(date);
+
+    candidate.setDate(
+      date.getDate() + daysToAdd,
+    );
+
+    const candidateValue =
+      formatDateValue(candidate);
+
+    if (
+      isValidOverrunDate(
+        candidateValue,
+      )
+    ) {
+      return candidateValue;
+    }
+  }
+
+  return startDate;
 }
 
 function QueueList({
@@ -39,7 +114,6 @@ function QueueList({
   description,
   queue,
   startIndex,
-  allowEditing,
   onRemove,
   onMove,
 }: {
@@ -47,136 +121,63 @@ function QueueList({
   description: string;
   queue: OverrunQueueItem[];
   startIndex: number;
-  allowEditing: boolean;
-  onRemove: (
-    queueIndex: number,
-  ) => void;
-  onMove: (
-    sourceIndex: number,
-    targetIndex: number,
-  ) => void;
+  onRemove: (queueIndex: number) => void;
+  onMove: (sourceIndex: number, targetIndex: number) => void;
 }) {
-  const [
-    draggedIndex,
-    setDraggedIndex,
-  ] = useState<number | null>(
-    null,
-  );
+  const [draggedIndex, setDraggedIndex] =
+    useState<number | null>(null);
 
   return (
-    <section className="overrun-queue-section">
-      <header className="overrun-section-header">
+    <section className="overrun-manager-section">
+      <header>
         <div>
           <h3>{title}</h3>
-
           <p>{description}</p>
         </div>
 
-        <span className="overrun-queue-count">
-          {queue.length}
-        </span>
+        <span>{queue.length}</span>
       </header>
 
       {queue.length === 0 ? (
-        <div className="overrun-empty-queue">
+        <div className="overrun-manager-empty">
           ยังไม่มีสมาชิกในส่วนนี้
         </div>
       ) : (
-        <div className="overrun-queue-list">
-          {queue.map(
-            (item, localIndex) => {
-              const absoluteIndex =
-                startIndex +
-                localIndex;
+        <div className="overrun-manager-list">
+          {queue.map((item, localIndex) => {
+            const absoluteIndex = startIndex + localIndex;
 
-              return (
-                <article
-                  key={`${item.memberName}-${absoluteIndex}`}
-                  className="overrun-queue-row"
-                  draggable={
-                    allowEditing
+            return (
+              <article
+                key={`${item.memberName}-${absoluteIndex}`}
+                className="overrun-manager-row"
+                draggable
+                onDragStart={() =>
+                  setDraggedIndex(absoluteIndex)
+                }
+                onDragOver={(event) =>
+                  event.preventDefault()
+                }
+                onDrop={() => {
+                  if (draggedIndex === null) {
+                    return;
                   }
-                  onDragStart={() => {
-                    if (
-                      !allowEditing
-                    ) {
-                      return;
-                    }
 
-                    setDraggedIndex(
-                      absoluteIndex,
-                    );
-                  }}
-                  onDragOver={(
-                    event,
-                  ) => {
-                    if (
-                      !allowEditing
-                    ) {
-                      return;
-                    }
+                  onMove(draggedIndex, absoluteIndex);
+                  setDraggedIndex(null);
+                }}
+                onDragEnd={() =>
+                  setDraggedIndex(null)
+                }
+              >
+                <div className="overrun-manager-order">
+                  {absoluteIndex + 1}
+                </div>
 
-                    event.preventDefault();
-                  }}
-                  onDrop={() => {
-                    if (
-                      !allowEditing ||
-                      draggedIndex ===
-                        null
-                    ) {
-                      return;
-                    }
-
-                    onMove(
-                      draggedIndex,
-                      absoluteIndex,
-                    );
-
-                    setDraggedIndex(
-                      null,
-                    );
-                  }}
-                  onDragEnd={() =>
-                    setDraggedIndex(
-                      null,
-                    )
-                  }
-                >
-                  <div className="overrun-queue-order">
-                    {absoluteIndex + 1}
-                  </div>
-
-                  <div className="overrun-queue-member">
-                    <strong>
-                      {item.memberName}
-                    </strong>
-
-                    <span>
-                      {absoluteIndex <
-                      CURRENT_QUEUE_SIZE
-                        ? 'รอบปัจจุบัน'
-                        : 'รอรอบถัดไป'}
-                    </span>
-                  </div>
-
-                  {allowEditing && (
-                    <button
-                      type="button"
-                      className="overrun-remove-button"
-                      onClick={() =>
-                        onRemove(
-                          absoluteIndex,
-                        )
-                      }
-                      aria-label={`ลบ ${item.memberName} ออกจากคิว`}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </article>
-              );
-            },
-          )}
+                <strong>{item.memberName}</strong>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
@@ -187,44 +188,77 @@ export function OverrunPage({
   members,
   isLoadingMembers,
 }: OverrunPageProps) {
+  const captureAreaRef =
+    useRef<HTMLDivElement | null>(null);
+
   const [eventDate, setEventDate] =
-    useState(getTodayDate);
+    useState(() =>
+      getNextOverrunDate(
+        getTodayDate(),
+      ),
+    );
 
   const [
-    selectedMember,
-    setSelectedMember,
+    dateValidationMessage,
+    setDateValidationMessage,
   ] = useState('');
 
-  const [
-    selectedResult,
-    setSelectedResult,
-  ] = useState<
-    OverrunResult | ''
-  >('');
+  const [selectedResult, setSelectedResult] =
+    useState<OverrunResult | ''>('');
+
+  const [noItemMember, setNoItemMember] =
+    useState('');
+
+  const [selectedMember, setSelectedMember] =
+    useState('');
+
+  const [isQueueManagerOpen, setIsQueueManagerOpen] =
+    useState(false);
+
+  const [isCountDialogOpen, setIsCountDialogOpen] =
+    useState(false);
+
+  const [bulkCardCount, setBulkCardCount] =
+    useState(2);
 
   const [
-    noItemMember,
-    setNoItemMember,
-  ] = useState('');
+    bulkWhiteFeatherCount,
+    setBulkWhiteFeatherCount,
+  ] = useState(8);
+
+  const [
+    bulkRedFeatherCount,
+    setBulkRedFeatherCount,
+  ] = useState(10);
+
+  const [isCapturing, setIsCapturing] =
+    useState(false);
+
+  const [copied, setCopied] =
+    useState(false);
 
   const {
     queue,
     currentQueue,
     waitingQueue,
+    auctionRows,
     preview,
-
     isLoading,
     isSaving,
     isConfirming,
-
     errorMessage,
     saveMessage,
-
     reloadQueue,
     addMemberToQueue,
+    replaceQueue,
     removeMemberFromQueue,
     moveMemberInQueue,
     saveCurrentQueue,
+    setSoldTo,
+    setCardCount,
+    setWhiteFeatherCount,
+    setRedFeatherCount,
+    setAllCounts,
     createPreview,
     clearPreview,
     confirmPreview,
@@ -232,65 +266,76 @@ export function OverrunPage({
     eventDate,
   });
 
-  const availableMembers =
-    useMemo(() => {
-      const queuedNames =
-        new Set(
-          queue.map(
-            (item) =>
-              item.memberName,
-          ),
-        );
-
-      return members
-        .map((member) =>
-          member.ign.trim(),
-        )
-        .filter(
-          (memberName) =>
-            memberName !== '' &&
-            !queuedNames.has(
-              memberName,
-            ),
-        )
-        .sort(
-          (
-            firstName,
+  const memberNames = useMemo(
+    () =>
+      members
+        .map((member) => member.ign.trim())
+        .filter(Boolean)
+        .sort((firstName, secondName) =>
+          firstName.localeCompare(
             secondName,
-          ) =>
-            firstName.localeCompare(
-              secondName,
-              'en',
-              {
-                sensitivity:
-                  'base',
-                numeric: true,
-              },
-            ),
-        );
-    }, [members, queue]);
+            'en',
+            {
+              sensitivity: 'base',
+              numeric: true,
+            },
+          ),
+        ),
+    [members],
+  );
 
-  function handleAddMember(): void {
-    if (!selectedMember) {
+  const availableMembers = useMemo(() => {
+    const queuedNames = new Set(
+      queue.map((item) => item.memberName),
+    );
+
+    return memberNames.filter(
+      (memberName) =>
+        !queuedNames.has(memberName),
+    );
+  }, [memberNames, queue]);
+
+  const soldCount = auctionRows.filter(
+    (row) => row.soldTo.trim() !== '',
+  ).length;
+
+  const totalCardCount = auctionRows.reduce(
+    (total, row) => total + row.cardCount,
+    0,
+  );
+
+  const totalWhiteFeatherCount =
+    auctionRows.reduce(
+      (total, row) =>
+        total + row.whiteFeatherCount,
+      0,
+    );
+
+  const totalRedFeatherCount =
+    auctionRows.reduce(
+      (total, row) =>
+        total + row.redFeatherCount,
+      0,
+    );
+
+  function handleDateChange(
+    nextDate: string,
+  ): void {
+    if (
+      !isValidOverrunDate(
+        nextDate,
+      )
+    ) {
+      setDateValidationMessage(
+        'Overrun มีกิจกรรมเฉพาะวันอาทิตย์',
+      );
+
       return;
     }
 
-    addMemberToQueue(
-      selectedMember,
-    );
-
-    setSelectedMember('');
-  }
-
-  function handleCreatePreview(): void {
-    if (!selectedResult) {
-      return;
-    }
-
-    createPreview(
-      selectedResult,
-      noItemMember,
-    );
+    setDateValidationMessage('');
+    setEventDate(nextDate);
+    clearPreview();
   }
 
   function handleResultChange(
@@ -301,18 +346,23 @@ export function OverrunPage({
     clearPreview();
   }
 
-  async function handleConfirm(): Promise<void> {
-    const confirmed =
-      window.confirm(
-        'ยืนยันผล Overrun และเลื่อนคิวรอบถัดไปหรือไม่?',
-      );
-
-    if (!confirmed) {
+  function handleCreatePreview(): void {
+    if (!selectedResult) {
       return;
     }
 
-    const success =
-      await confirmPreview();
+    const success = createPreview(
+      selectedResult,
+      noItemMember,
+    );
+
+    if (success) {
+      // preview state controls the dialog
+    }
+  }
+
+  async function handleConfirm(): Promise<void> {
+    const success = await confirmPreview();
 
     if (success) {
       setSelectedResult('');
@@ -320,16 +370,134 @@ export function OverrunPage({
     }
   }
 
+  function handleAddMember(): void {
+    if (!selectedMember) {
+      return;
+    }
+
+    addMemberToQueue(selectedMember);
+    setSelectedMember('');
+  }
+
+  function handleShuffleQueue(): void {
+    const memberNamesToShuffle = members
+      .map((member) => member.ign.trim())
+      .filter(Boolean);
+
+    if (memberNamesToShuffle.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        'ต้องการสุ่มคิว Overrun ใหม่ทั้งกิลหรือไม่?',
+        '',
+        `สมาชิกทั้งหมด ${memberNamesToShuffle.length} คน`,
+        'คิวปัจจุบันจะถูกแทนที่ทั้งหมด',
+        'หลังสุ่มแล้วต้องกด "บันทึกคิว" อีกครั้ง',
+      ].join('\n'),
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    replaceQueue(shuffle(memberNamesToShuffle));
+    setSelectedMember('');
+    setSelectedResult('');
+    setNoItemMember('');
+  }
+
+  function openCountDialog(): void {
+    const firstRow = auctionRows[0];
+
+    if (firstRow) {
+      setBulkCardCount(firstRow.cardCount);
+      setBulkWhiteFeatherCount(
+        firstRow.whiteFeatherCount,
+      );
+      setBulkRedFeatherCount(
+        firstRow.redFeatherCount,
+      );
+    }
+
+    setIsCountDialogOpen(true);
+  }
+
+  function applyAllCounts(): void {
+    setAllCounts(
+      bulkCardCount,
+      bulkWhiteFeatherCount,
+      bulkRedFeatherCount,
+    );
+
+    setIsCountDialogOpen(false);
+  }
+
+  async function handleCopyAuctionImage(): Promise<void> {
+    const captureElement = captureAreaRef.current;
+
+    if (!captureElement) {
+      return;
+    }
+
+    try {
+      setIsCapturing(true);
+
+      const blob = await toBlob(captureElement, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+
+      if (!blob) {
+        throw new Error('สร้างภาพไม่สำเร็จ');
+      }
+
+      if (
+        !navigator.clipboard ||
+        typeof ClipboardItem === 'undefined'
+      ) {
+        throw new Error(
+          'เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพ',
+        );
+      }
+
+      const pngBlob =
+        blob.type === 'image/png'
+          ? blob
+          : new Blob([blob], {
+              type: 'image/png',
+            });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': pngBlob,
+        }),
+      ]);
+
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error(
+        'ไม่สามารถคัดลอกรูปภาพ Overrun ได้',
+        error,
+      );
+    } finally {
+      setIsCapturing(false);
+    }
+  }
+
   return (
-    <main className="overrun-page">
+    <main className="overrun-page overrun-v2-page">
       <section className="overrun-toolbar">
         <div>
-          <h2>
-            Overrun Auction
-          </h2>
-
+          <h2>Overrun Auction</h2>
           <p>
-            เตรียมคิวประมูลก่อนวอ และยืนยันผลหลังจบวอ
+            จัดการสิทธิประมูลตามลำดับคิวรายคน
           </p>
         </div>
 
@@ -337,9 +505,7 @@ export function OverrunPage({
           <button
             type="button"
             className="overrun-reload-button"
-            onClick={() =>
-              void reloadQueue()
-            }
+            onClick={() => void reloadQueue()}
             disabled={
               isLoading ||
               isSaving ||
@@ -353,19 +519,62 @@ export function OverrunPage({
 
           <button
             type="button"
-            className="overrun-save-button"
+            className="overrun-capture-button"
             onClick={() =>
-              void saveCurrentQueue()
+              void handleCopyAuctionImage()
             }
             disabled={
               isLoading ||
-              isSaving ||
-              isConfirming
+              isCapturing ||
+              auctionRows.length === 0
             }
           >
-            {isSaving
-              ? 'กำลังบันทึก...'
-              : 'บันทึกคิว'}
+            {isCapturing
+              ? 'กำลังสร้างภาพ...'
+              : copied
+                ? '✓ คัดลอกแล้ว'
+                : '📷 คัดลอกรูป'}
+          </button>
+
+          <button
+            type="button"
+            className="overrun-bulk-button"
+            onClick={openCountDialog}
+            disabled={
+              isLoading ||
+              isSaving ||
+              auctionRows.length === 0
+            }
+          >
+            📦 ตั้งค่าจำนวน
+          </button>
+
+          <button
+            type="button"
+            className="overrun-manage-button"
+            onClick={() =>
+              setIsQueueManagerOpen(true)
+            }
+            disabled={isLoading}
+          >
+            ☰ จัดการคิว
+          </button>
+
+          <button
+            type="button"
+            className="overrun-confirm-button"
+            onClick={handleCreatePreview}
+            disabled={
+              isLoading ||
+              isConfirming ||
+              !selectedResult ||
+              currentQueue.length <
+                CURRENT_QUEUE_SIZE ||
+              (selectedResult === 'lose' &&
+                !noItemMember)
+            }
+          >
+            ยืนยันผล
           </button>
         </div>
       </section>
@@ -384,22 +593,429 @@ export function OverrunPage({
 
       {isLoading ? (
         <div className="overrun-status">
-          กำลังโหลดคิว Overrun...
+          กำลังโหลดข้อมูล Overrun...
         </div>
       ) : (
         <>
-          <section className="overrun-add-member">
-            <div>
-              <h3>
-                เพิ่มสมาชิกเข้าคิว
-              </h3>
+          <section className="overrun-v2-control-panel">
+            <label className="overrun-v2-date">
+              <span>วันที่วอ</span>
 
-              <p>
-                สมาชิกใหม่จะถูกเพิ่มต่อท้ายคิว
-              </p>
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(event) =>
+                  handleDateChange(
+                    event.target.value,
+                  )
+                }
+              />
+
+              <small>
+                เลือกได้เฉพาะวันอาทิตย์
+              </small>
+            </label>
+
+            <div className="overrun-v2-result">
+              <span>ผล Overrun</span>
+
+              <div>
+                <button
+                  type="button"
+                  className={
+                    selectedResult === 'win'
+                      ? 'active win'
+                      : ''
+                  }
+                  onClick={() =>
+                    handleResultChange('win')
+                  }
+                >
+                  ชนะ
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    selectedResult === 'lose'
+                      ? 'active lose'
+                      : ''
+                  }
+                  onClick={() =>
+                    handleResultChange('lose')
+                  }
+                >
+                  แพ้
+                </button>
+              </div>
             </div>
 
-            <div className="overrun-add-member-controls">
+            {selectedResult === 'lose' && (
+              <label className="overrun-v2-no-item">
+                <span>คนที่ไม่ได้ประมูล</span>
+
+                <select
+                  value={noItemMember}
+                  onChange={(event) => {
+                    setNoItemMember(
+                      event.target.value,
+                    );
+                    clearPreview();
+                  }}
+                >
+                  <option value="">
+                    เลือกจาก 13 คน
+                  </option>
+
+                  {currentQueue.map((item) => (
+                    <option
+                      key={item.memberName}
+                      value={item.memberName}
+                    >
+                      {item.memberName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </section>
+
+          {dateValidationMessage && (
+            <div className="overrun-warning">
+              ⚠ {dateValidationMessage}
+            </div>
+          )}
+
+          <section className="overrun-v2-summary-grid">
+            <article>
+              <span>คิวปัจจุบัน</span>
+              <strong>
+                {currentQueue.length}/
+                {CURRENT_QUEUE_SIZE}
+              </strong>
+            </article>
+
+            <article>
+              <span>ขายสิทธิ</span>
+              <strong>{soldCount} คน</strong>
+            </article>
+
+            <article>
+              <span>การ์ดทั้งหมด</span>
+              <strong>{totalCardCount}</strong>
+            </article>
+
+            <article>
+              <span>ขนนกขาวทั้งหมด</span>
+              <strong>
+                {totalWhiteFeatherCount}
+              </strong>
+            </article>
+
+            <article>
+              <span>ขนนกแดงทั้งหมด</span>
+              <strong>
+                {totalRedFeatherCount}
+              </strong>
+            </article>
+          </section>
+
+          <section className="overrun-v2-table">
+            <header className="overrun-v2-table-header">
+              <div>คิว</div>
+              <div>เจ้าของสิทธิ</div>
+              <div>ขายให้</div>
+              <div>
+                <img
+                  src={cardBookIcon}
+                  alt="การ์ด"
+                />
+              </div>
+              <div>
+                <img
+                  src={whiteFeatherIcon}
+                  alt="ขนนกขาว"
+                />
+              </div>
+              <div>
+                <img
+                  src={redFeatherIcon}
+                  alt="ขนนกแดง"
+                />
+              </div>
+            </header>
+
+            <div className="overrun-v2-table-body">
+              {auctionRows.map((row) => {
+                const isSold =
+                  row.soldTo.trim() !== '';
+
+                return (
+                  <article
+                    className={[
+                      'overrun-v2-row',
+                      isSold ? 'is-sold' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    key={row.queueOrder}
+                  >
+                    <div className="overrun-v2-order">
+                      {String(
+                        row.queueOrder,
+                      ).padStart(2, '0')}
+                    </div>
+
+                    <div
+                      className={[
+                        'overrun-v2-owner',
+                        !isSold
+                          ? 'is-active'
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <small>เจ้าของสิทธิ</small>
+                      <strong>
+                        {row.queueOwner}
+                      </strong>
+                    </div>
+
+                    <label className="overrun-v2-buyer">
+                      <small>ขายให้</small>
+
+                      <select
+                        className={
+                          isSold
+                            ? 'is-active'
+                            : ''
+                        }
+                        value={row.soldTo}
+                        onChange={(event) =>
+                          setSoldTo(
+                            row.queueOrder,
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="">
+                          {' '}
+                        </option>
+
+                        {memberNames.map(
+                          (memberName) => (
+                            <option
+                              key={memberName}
+                              value={memberName}
+                            >
+                              {memberName}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+
+                    <label className="overrun-v2-count">
+                      <span>การ์ด</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={row.cardCount}
+                        onChange={(event) =>
+                          setCardCount(
+                            row.queueOrder,
+                            Number(
+                              event.target.value,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="overrun-v2-count">
+                      <span>ขนนกขาว</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={
+                          row.whiteFeatherCount
+                        }
+                        onChange={(event) =>
+                          setWhiteFeatherCount(
+                            row.queueOrder,
+                            Number(
+                              event.target.value,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label className="overrun-v2-count">
+                      <span>ขนนกแดง</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={
+                          row.redFeatherCount
+                        }
+                        onChange={(event) =>
+                          setRedFeatherCount(
+                            row.queueOrder,
+                            Number(
+                              event.target.value,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="overrun-discord-capture-wrapper">
+            <section
+              ref={captureAreaRef}
+              className="overrun-discord-capture"
+            >
+              <div className="overrun-discord-title">
+                <strong>{eventDate}</strong>
+
+                <span>
+                  OVER­RUN{' '}
+                  {selectedResult
+                    ? `— ${selectedResult.toUpperCase()}`
+                    : ''}
+                </span>
+              </div>
+
+              <div className="overrun-discord-table">
+                <div className="overrun-discord-row overrun-discord-header">
+                  <div>Queue</div>
+                  <div>👤</div>
+                  <div>💰</div>
+                  <div>
+                    <img
+                      src={cardBookIcon}
+                      alt="การ์ด"
+                    />
+                  </div>
+                  <div>
+                    <img
+                      src={whiteFeatherIcon}
+                      alt="ขนนกขาว"
+                    />
+                  </div>
+                  <div>
+                    <img
+                      src={redFeatherIcon}
+                      alt="ขนนกแดง"
+                    />
+                  </div>
+                </div>
+
+                {auctionRows.map((row) => (
+                  <div
+                    className="overrun-discord-row"
+                    key={`capture-${row.queueOrder}`}
+                  >
+                    <div className="overrun-discord-order">
+                      Q
+                      {String(
+                        row.queueOrder,
+                      ).padStart(2, '0')}
+                    </div>
+
+                    <div className="overrun-discord-name">
+                      {row.queueOwner || '—'}
+                    </div>
+
+                    <div className="overrun-discord-name">
+                      {row.soldTo || '—'}
+                    </div>
+
+                    <div className="overrun-discord-count">
+                      {row.cardCount}
+                    </div>
+
+                    <div className="overrun-discord-count">
+                      {row.whiteFeatherCount}
+                    </div>
+
+                    <div className="overrun-discord-count">
+                      {row.redFeatherCount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {selectedResult && (
+                <div className="overrun-discord-result">
+                  <strong>
+                    Result:{' '}
+                    {selectedResult === 'win'
+                      ? 'Win'
+                      : 'Lose'}
+                  </strong>
+
+                  {selectedResult === 'lose' &&
+                    noItemMember && (
+                      <span>
+                        ไม่ได้รับสิทธิ:{' '}
+                        {noItemMember}
+                      </span>
+                    )}
+                </div>
+              )}
+            </section>
+          </div>
+        </>
+      )}
+
+      {isQueueManagerOpen && (
+        <div
+          className="overrun-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setIsQueueManagerOpen(false);
+            }
+          }}
+        >
+          <section
+            className="overrun-queue-dialog"
+            role="dialog"
+            aria-modal="true"
+          >
+            <header>
+              <div>
+                <h3>จัดการคิว Overrun</h3>
+                <p>
+                  เพิ่ม ลบ ลากเรียง หรือสุ่มคิวใหม่
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setIsQueueManagerOpen(false)
+                }
+                aria-label="ปิดหน้าต่าง"
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="overrun-queue-dialog-toolbar">
               <select
                 value={selectedMember}
                 onChange={(event) =>
@@ -409,8 +1025,7 @@ export function OverrunPage({
                 }
                 disabled={
                   isLoadingMembers ||
-                  availableMembers.length ===
-                    0
+                  availableMembers.length === 0
                 }
               >
                 <option value="">
@@ -425,12 +1040,8 @@ export function OverrunPage({
                 {availableMembers.map(
                   (memberName) => (
                     <option
-                      key={
-                        memberName
-                      }
-                      value={
-                        memberName
-                      }
+                      key={memberName}
+                      value={memberName}
                     >
                       {memberName}
                     </option>
@@ -440,318 +1051,334 @@ export function OverrunPage({
 
               <button
                 type="button"
-                onClick={
-                  handleAddMember
-                }
-                disabled={
-                  !selectedMember
-                }
+                onClick={handleAddMember}
+                disabled={!selectedMember}
               >
                 + เพิ่มเข้าคิว
               </button>
+
+              <button
+                type="button"
+                onClick={handleShuffleQueue}
+                disabled={
+                  isLoadingMembers ||
+                  members.length === 0
+                }
+              >
+                🎲 สุ่มคิวใหม่
+              </button>
             </div>
+
+            <div className="overrun-manager-grid">
+              <QueueList
+                title="Current Queue"
+                description="13 คนในรอบปัจจุบัน"
+                queue={currentQueue}
+                startIndex={0}
+                onRemove={
+                  removeMemberFromQueue
+                }
+                onMove={moveMemberInQueue}
+              />
+
+              <QueueList
+                title="Waiting Queue"
+                description="สมาชิกที่รอรอบถัดไป"
+                queue={waitingQueue}
+                startIndex={
+                  CURRENT_QUEUE_SIZE
+                }
+                onRemove={
+                  removeMemberFromQueue
+                }
+                onMove={moveMemberInQueue}
+              />
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setIsQueueManagerOpen(false)
+                }
+              >
+                ปิด
+              </button>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  void saveCurrentQueue()
+                }
+                disabled={isSaving}
+              >
+                {isSaving
+                  ? 'กำลังบันทึก...'
+                  : 'บันทึกคิว'}
+              </button>
+            </footer>
           </section>
+        </div>
+      )}
 
-          <section className="overrun-queue-grid">
-            <QueueList
-              title="Current Queue"
-              description="13 คนที่มีสิทธิประมูลในรอบนี้"
-              queue={currentQueue}
-              startIndex={0}
-              allowEditing
-              onRemove={
-                removeMemberFromQueue
-              }
-              onMove={
-                moveMemberInQueue
-              }
-            />
-
-            <QueueList
-              title="Waiting Queue"
-              description="สมาชิกที่รอขึ้นรอบถัดไป"
-              queue={waitingQueue}
-              startIndex={
-                CURRENT_QUEUE_SIZE
-              }
-              allowEditing
-              onRemove={
-                removeMemberFromQueue
-              }
-              onMove={
-                moveMemberInQueue
-              }
-            />
-          </section>
-
-          <section className="overrun-result-panel">
+      {isCountDialogOpen && (
+        <div
+          className="overrun-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setIsCountDialogOpen(false);
+            }
+          }}
+        >
+          <section
+            className="overrun-count-dialog"
+            role="dialog"
+            aria-modal="true"
+          >
             <header>
               <div>
-                <h3>
-                  ผล Overrun
-                </h3>
-
+                <h3>ตั้งค่าจำนวนทั้งหน้า</h3>
                 <p>
-                  กรอกหลังจบวอเพื่อคำนวณคิวรอบถัดไป
+                  ใช้ค่ากับคิวปัจจุบันทั้ง 13 คน
                 </p>
               </div>
 
-              <label className="overrun-date-field">
-                <span>วันที่วอ</span>
-
-                <input
-                  type="date"
-                  value={eventDate}
-                  onChange={(event) => {
-                    setEventDate(
-                      event.target
-                        .value,
-                    );
-
-                    clearPreview();
-                  }}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setIsCountDialogOpen(false)
+                }
+                aria-label="ปิดหน้าต่าง"
+              >
+                ✕
+              </button>
             </header>
 
-            <div className="overrun-result-options">
-              <button
-                type="button"
-                className={
-                  selectedResult ===
-                  'win'
-                    ? 'active win'
-                    : ''
-                }
-                onClick={() =>
-                  handleResultChange(
-                    'win',
-                  )
-                }
-              >
-                <strong>
-                  ชนะ
-                </strong>
-
+            <div>
+              <label>
                 <span>
-                  ทั้ง 13 คนได้ประมูล
+                  <img
+                    src={cardBookIcon}
+                    alt=""
+                  />
+                  การ์ด
                 </span>
-              </button>
 
-              <button
-                type="button"
-                className={
-                  selectedResult ===
-                  'lose'
-                    ? 'active lose'
-                    : ''
-                }
-                onClick={() =>
-                  handleResultChange(
-                    'lose',
-                  )
-                }
-              >
-                <strong>
-                  แพ้
-                </strong>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={bulkCardCount}
+                  onChange={(event) =>
+                    setBulkCardCount(
+                      Number(
+                        event.target.value,
+                      ),
+                    )
+                  }
+                />
+              </label>
 
+              <label>
                 <span>
-                  มี 1 คนไม่ได้ประมูล
+                  <img
+                    src={whiteFeatherIcon}
+                    alt=""
+                  />
+                  ขนนกขาว
                 </span>
-              </button>
+
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={
+                    bulkWhiteFeatherCount
+                  }
+                  onChange={(event) =>
+                    setBulkWhiteFeatherCount(
+                      Number(
+                        event.target.value,
+                      ),
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                <span>
+                  <img
+                    src={redFeatherIcon}
+                    alt=""
+                  />
+                  ขนนกแดง
+                </span>
+
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={
+                    bulkRedFeatherCount
+                  }
+                  onChange={(event) =>
+                    setBulkRedFeatherCount(
+                      Number(
+                        event.target.value,
+                      ),
+                    )
+                  }
+                />
+              </label>
             </div>
 
-            {selectedResult ===
-              'lose' && (
-              <label className="overrun-no-item-field">
-                <span>
-                  คนที่ไม่ได้ประมูล
-                </span>
+            <footer>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setIsCountDialogOpen(false)
+                }
+              >
+                ยกเลิก
+              </button>
 
-                <select
-                  value={noItemMember}
-                  onChange={(event) => {
-                    setNoItemMember(
-                      event.target
-                        .value,
-                    );
-
-                    clearPreview();
-                  }}
-                >
-                  <option value="">
-                    เลือกจาก 13 คนในรอบนี้
-                  </option>
-
-                  {currentQueue.map(
-                    (item) => (
-                      <option
-                        key={
-                          item.memberName
-                        }
-                        value={
-                          item.memberName
-                        }
-                      >
-                        {item.memberName}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-            )}
-
-            <button
-              type="button"
-              className="overrun-preview-button"
-              onClick={
-                handleCreatePreview
-              }
-              disabled={
-                !selectedResult ||
-                (selectedResult ===
-                  'lose' &&
-                  !noItemMember)
-              }
-            >
-              ดูคิวรอบถัดไป
-            </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={applyAllCounts}
+              >
+                ใช้กับทุกคน
+              </button>
+            </footer>
           </section>
+        </div>
+      )}
 
-          {preview && (
-            <section className="overrun-preview-panel">
-              <header>
-                <div>
-                  <h3>
-                    Preview คิวรอบถัดไป
-                  </h3>
-
-                  <p>
-                    ตรวจสอบให้ถูกต้องก่อนยืนยันผล
-                  </p>
-                </div>
-
-                <span
-                  className={[
-                    'overrun-result-badge',
-                    preview.result,
-                  ].join(' ')}
-                >
-                  {preview.result ===
-                  'win'
-                    ? 'ชนะ'
-                    : 'แพ้'}
-                </span>
-              </header>
-
-              {preview.result ===
-                'lose' && (
-                <div className="overrun-preview-note">
-                  <strong>
-                    {
-                      preview.noItemMember
-                    }
-                  </strong>{' '}
-                  จะกลับมาเป็นลำดับ 1
-                  ของรอบถัดไป
-                </div>
-              )}
-
-              <div className="overrun-preview-columns">
-                <div>
-                  <h4>
-                    รอบปัจจุบัน
-                  </h4>
-
-                  <ol>
-                    {preview.queueBefore
-                      .slice(
-                        0,
-                        CURRENT_QUEUE_SIZE,
-                      )
-                      .map(
-                        (
-                          memberName,
-                          index,
-                        ) => (
-                          <li
-                            key={`${memberName}-${index}`}
-                          >
-                            {
-                              memberName
-                            }
-                          </li>
-                        ),
-                      )}
-                  </ol>
-                </div>
-
-                <div className="overrun-preview-arrow">
-                  →
-                </div>
-
-                <div>
-                  <h4>
-                    รอบถัดไป
-                  </h4>
-
-                  <ol>
-                    {preview.queueAfter
-                      .slice(
-                        0,
-                        CURRENT_QUEUE_SIZE,
-                      )
-                      .map(
-                        (
-                          memberName,
-                          index,
-                        ) => (
-                          <li
-                            key={`${memberName}-${index}`}
-                          >
-                            {
-                              memberName
-                            }
-                          </li>
-                        ),
-                      )}
-                  </ol>
-                </div>
+      {preview && (
+        <div
+          className="overrun-dialog-backdrop"
+          role="presentation"
+        >
+          <section
+            className="overrun-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+          >
+            <header>
+              <div>
+                <h3>ยืนยันผล Overrun</h3>
+                <p>
+                  ตรวจสอบคิวรอบถัดไปก่อนยืนยัน
+                </p>
               </div>
 
-              <footer>
-                <button
-                  type="button"
-                  className="overrun-preview-cancel"
-                  onClick={
-                    clearPreview
-                  }
-                  disabled={
-                    isConfirming
-                  }
-                >
-                  ย้อนกลับ
-                </button>
+              <span
+                className={[
+                  'overrun-result-badge',
+                  preview.result,
+                ].join(' ')}
+              >
+                {preview.result === 'win'
+                  ? 'ชนะ'
+                  : 'แพ้'}
+              </span>
+            </header>
 
-                <button
-                  type="button"
-                  className="overrun-preview-confirm"
-                  onClick={() =>
-                    void handleConfirm()
-                  }
-                  disabled={
-                    isConfirming
-                  }
-                >
-                  {isConfirming
-                    ? 'กำลังยืนยัน...'
-                    : 'ยืนยันผลและเลื่อนคิว'}
-                </button>
-              </footer>
-            </section>
-          )}
-        </>
+            {preview.result === 'lose' && (
+              <div className="overrun-preview-note">
+                <strong>
+                  {preview.noItemMember}
+                </strong>{' '}
+                จะเป็นคิวอันดับ 1 ในรอบถัดไป
+              </div>
+            )}
+
+            <div className="overrun-preview-columns">
+              <div>
+                <h4>รอบปัจจุบัน</h4>
+
+                <ol>
+                  {preview.queueBefore
+                    .slice(
+                      0,
+                      CURRENT_QUEUE_SIZE,
+                    )
+                    .map(
+                      (
+                        memberName,
+                        index,
+                      ) => (
+                        <li
+                          key={`${memberName}-${index}`}
+                        >
+                          {memberName}
+                        </li>
+                      ),
+                    )}
+                </ol>
+              </div>
+
+              <div className="overrun-preview-arrow">
+                →
+              </div>
+
+              <div>
+                <h4>รอบถัดไป</h4>
+
+                <ol>
+                  {preview.queueAfter
+                    .slice(
+                      0,
+                      CURRENT_QUEUE_SIZE,
+                    )
+                    .map(
+                      (
+                        memberName,
+                        index,
+                      ) => (
+                        <li
+                          key={`${memberName}-${index}`}
+                        >
+                          {memberName}
+                        </li>
+                      ),
+                    )}
+                </ol>
+              </div>
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="secondary"
+                onClick={clearPreview}
+                disabled={isConfirming}
+              >
+                ย้อนกลับ
+              </button>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  void handleConfirm()
+                }
+                disabled={isConfirming}
+              >
+                {isConfirming
+                  ? 'กำลังยืนยัน...'
+                  : 'ยืนยันและเลื่อนคิว'}
+              </button>
+            </footer>
+          </section>
+        </div>
       )}
     </main>
   );
