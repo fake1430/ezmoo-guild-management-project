@@ -12,13 +12,15 @@ import type { Party } from './types/partyTypes';
 import { saveParties } from './services/googleApi';
 import { AttendancePage } from './components/attendance/AttendancePage';
 import { AuctionPage } from './components/auction/AuctionPage';
+import { OverrunPage } from './components/overrun/OverrunPage';
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
 type AppPage =
   | 'partyBuilder'
   | 'attendance'
-  | 'auction';
+  | 'auction'
+  | 'overrun';
 
 function App() {
   const [currentPage, setCurrentPage] =
@@ -467,6 +469,20 @@ const modeLabel =
         >
           Auction
         </button>
+
+              <button
+        type="button"
+        className={
+          currentPage === 'overrun'
+            ? 'active'
+            : ''
+        }
+        onClick={() =>
+          setCurrentPage('overrun')
+        }
+      >
+        Overrun Auction
+      </button>
       </nav>
 
       {isPartyPage && (
@@ -608,9 +624,19 @@ const modeLabel =
                         members={members}
                       />
                     )}
+
+                    {currentPage === 'overrun' && (
+                      <OverrunPage
+                        members={members}
+                        isLoadingMembers={
+                          isLoadingMembers
+                        }
+                      />
+                    )}
                     </div>
                   );
                 }
+                
 
                 
 

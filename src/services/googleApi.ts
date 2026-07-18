@@ -10,6 +10,10 @@ import type {
   GuildLeagueAuctionRecord,
   GuildLeagueAuctionSaveItem,
 } from '../types/auction';
+import type {
+  OverrunQueueItem,
+  ConfirmOverrunResultPayload,
+} from '../types/overrun';
 
 
 interface ApiSuccessResponse<T> {
@@ -152,6 +156,14 @@ export function getGuildLeagueAuction(
   );
 }
 
+export function getOverrunQueue(): Promise<
+  OverrunQueueItem[]
+> {
+  return request<OverrunQueueItem[]>(
+    'getOverrunQueue',
+  );
+}
+
 export async function saveAttendance(
   eventDate: string,
   eventType: AttendanceEventType,
@@ -212,6 +224,8 @@ export async function saveGuildLeagueAuction(
     }),
   });
 
+  
+
   if (!response.ok) {
     throw new Error(
       `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
@@ -227,6 +241,91 @@ export async function saveGuildLeagueAuction(
         success: false;
         error: string;
       };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
+}
+
+export async function saveOverrunQueue(
+  queue: OverrunQueueItem[],
+): Promise<string> {
+  const response = await fetch(
+    API_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type':
+          'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({
+        action:
+          'saveOverrunQueue',
+        queue,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result =
+    (await response.json()) as
+      | {
+          success: true;
+          message: string;
+        }
+      | {
+          success: false;
+          error: string;
+        };
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result.message;
+}
+export async function confirmOverrunResult(
+  payload: ConfirmOverrunResultPayload,
+): Promise<string> {
+  const response = await fetch(
+    API_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type':
+          'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({
+        action:
+          'confirmOverrunResult',
+        ...payload,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `บันทึกข้อมูลไม่สำเร็จ: HTTP ${response.status}`,
+    );
+  }
+
+  const result =
+    (await response.json()) as
+      | {
+          success: true;
+          message: string;
+        }
+      | {
+          success: false;
+          error: string;
+        };
 
   if (!result.success) {
     throw new Error(result.error);
