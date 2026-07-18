@@ -175,6 +175,17 @@ function QueueList({
                 </div>
 
                 <strong>{item.memberName}</strong>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    onRemove(absoluteIndex)
+                  }
+                  aria-label={`ลบ ${item.memberName} ออกจากคิว`}
+                  title="ลบออกจากคิว"
+                >
+                  ✕
+                </button>
               </article>
             );
           })}

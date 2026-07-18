@@ -13,6 +13,7 @@ import { saveParties } from './services/googleApi';
 import { AttendancePage } from './components/attendance/AttendancePage';
 import { AuctionPage } from './components/auction/AuctionPage';
 import { OverrunPage } from './components/overrun/OverrunPage';
+import { WarPlannerPage } from './pages/warPlanner/WarPlannerPage';
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
@@ -20,7 +21,8 @@ type AppPage =
   | 'partyBuilder'
   | 'attendance'
   | 'auction'
-  | 'overrun';
+  | 'overrun'
+  | 'warPlanner';
 
 function App() {
   const [currentPage, setCurrentPage] =
@@ -483,6 +485,19 @@ const modeLabel =
       >
         Overrun Auction
       </button>
+      <button
+          type="button"
+          className={
+            currentPage === 'warPlanner'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            setCurrentPage('warPlanner')
+          }
+        >
+          War Planner
+        </button>
       </nav>
 
       {isPartyPage && (
@@ -633,6 +648,9 @@ const modeLabel =
                         }
                       />
                     )}
+                    {currentPage === 'warPlanner' && (
+                        <WarPlannerPage />
+                      )}
                     </div>
                   );
                 }
