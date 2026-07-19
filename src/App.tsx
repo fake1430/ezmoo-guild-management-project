@@ -78,12 +78,12 @@ function App() {
     );
   }, [parties]);
 
-const modeLabel =
-  mode === 'guildLeague'
-    ? 'Guild League'
-    : mode === 'overrun'
-      ? 'Overrun'
-      : 'Auction Party';
+  const modeLabel =
+    mode === 'guildLeague'
+      ? 'Guild League'
+      : mode === 'overrun'
+        ? 'Overrun'
+        : 'Auction Party';
 
   function handleAddParty(): void {
     setEditableParties(
@@ -458,6 +458,7 @@ const modeLabel =
         >
           Attendance
         </button>
+
         <button
           type="button"
           className={
@@ -472,20 +473,21 @@ const modeLabel =
           Auction
         </button>
 
-              <button
-        type="button"
-        className={
-          currentPage === 'overrun'
-            ? 'active'
-            : ''
-        }
-        onClick={() =>
-          setCurrentPage('overrun')
-        }
-      >
-        Overrun Auction
-      </button>
-      <button
+        <button
+          type="button"
+          className={
+            currentPage === 'overrun'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            setCurrentPage('overrun')
+          }
+        >
+          Overrun Auction
+        </button>
+
+        <button
           type="button"
           className={
             currentPage === 'warPlanner'
@@ -582,7 +584,7 @@ const modeLabel =
                   partyErrorMessage
                 }
                 onReload={
-                  reloadParties
+                  handleReloadAll
                 }
                 onSave={
                   handleSaveParties
@@ -626,36 +628,35 @@ const modeLabel =
         </>
       )}
 
-                {currentPage === 'attendance' && (
-                  <AttendancePage
-                    members={members}
-                    isLoadingMembers={isLoadingMembers}
-                    memberErrorMessage={memberErrorMessage}
-                    onReloadMembers={reloadMembers}
-                  />
-                )}
-                    {currentPage === 'auction' && (
-                      <AuctionPage
-                        members={members}
-                      />
-                    )}
+      {currentPage === 'attendance' && (
+        <AttendancePage
+          members={members}
+          isLoadingMembers={isLoadingMembers}
+          memberErrorMessage={memberErrorMessage}
+          onReloadMembers={reloadMembers}
+        />
+      )}
 
-                    {currentPage === 'overrun' && (
-                      <OverrunPage
-                        members={members}
-                        isLoadingMembers={
-                          isLoadingMembers
-                        }
-                      />
-                    )}
-                    {currentPage === 'warPlanner' && (
-                        <WarPlannerPage />
-                      )}
-                    </div>
-                  );
-                }
-                
+      {currentPage === 'auction' && (
+        <AuctionPage
+          members={members}
+        />
+      )}
 
-                
+      {currentPage === 'overrun' && (
+        <OverrunPage
+          members={members}
+          isLoadingMembers={
+            isLoadingMembers
+          }
+        />
+      )}
+
+      {currentPage === 'warPlanner' && (
+        <WarPlannerPage />
+      )}
+    </div>
+  );
+}
 
 export default App;

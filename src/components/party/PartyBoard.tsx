@@ -461,9 +461,17 @@ function handleMemberDragLeave(
               const actualPartyIndex =
                 startIndex + localIndex;
 
-              const displayPartyNumber =
-              party.party ??
-              actualPartyIndex + 1;
+              let displayPartyNumber: number;
+
+              if (isAuctionParty) {
+                displayPartyNumber =
+                  party.party ?? actualPartyIndex + 1;
+              } else {
+                displayPartyNumber =
+                  party.party != null
+                    ? ((party.party - 1) % 8) + 1
+                    : ((actualPartyIndex % 8) + 1);
+              }
 
               const slots =
                 normalizeSlots(party.slots);
