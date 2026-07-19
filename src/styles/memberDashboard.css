@@ -1,0 +1,207 @@
+.member-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.member-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.member-dashboard-header h2 {
+  margin: 0;
+}
+
+.member-dashboard-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.member-dashboard-count {
+  padding: 8px 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.member-dashboard-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(240px, 1fr)
+    220px
+    220px;
+  gap: 12px;
+}
+
+.member-dashboard-toolbar input,
+.member-dashboard-toolbar select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  font: inherit;
+}
+
+.member-dashboard-status,
+.member-dashboard-error {
+  padding: 24px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.member-dashboard-error {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.member-dashboard-empty {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  padding: 32px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.member-dashboard-empty p {
+  margin: 8px 0 0;
+  color: #64748b;
+}
+
+.member-dashboard-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.member-dashboard-card {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: #ffffff;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.member-dashboard-card:hover {
+  transform: translateY(-3px);
+  border-color: #94a3b8;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 10%);
+}
+
+.member-dashboard-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.member-dashboard-card-header > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.member-dashboard-card-header strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-dashboard-card-header > div > span {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-dashboard-card-arrow {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.member-dashboard-auction-summary {
+  padding: 16px 18px 18px;
+}
+
+.member-dashboard-auction-summary h3 {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.member-dashboard-auction-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.member-dashboard-auction-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 11px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.member-dashboard-auction-grid span {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-dashboard-auction-grid strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+@media (max-width: 900px) {
+  .member-dashboard-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .member-dashboard-header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 700px) {
+  .member-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

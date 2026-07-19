@@ -14,6 +14,8 @@ import { AttendancePage } from './components/attendance/AttendancePage';
 import { AuctionPage } from './components/auction/AuctionPage';
 import { OverrunPage } from './components/overrun/OverrunPage';
 import { WarPlannerPage } from './pages/warPlanner/WarPlannerPage';
+import { MemberDashboardPage } from './pages/memberDashboard/MemberDashboardPage';
+
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
 
@@ -22,7 +24,8 @@ type AppPage =
   | 'attendance'
   | 'auction'
   | 'overrun'
-  | 'warPlanner';
+  | 'warPlanner'
+  | 'memberDashboard';
 
 function App() {
   const [currentPage, setCurrentPage] =
@@ -500,6 +503,19 @@ function App() {
         >
           War Planner
         </button>
+                <button
+          type="button"
+          className={
+            currentPage === 'memberDashboard'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            setCurrentPage('memberDashboard')
+          }
+        >
+          Members
+</button>
       </nav>
 
       {isPartyPage && (
@@ -654,6 +670,13 @@ function App() {
 
       {currentPage === 'warPlanner' && (
         <WarPlannerPage />
+      )}
+      {currentPage === 'memberDashboard' && (
+        <MemberDashboardPage
+          members={members}
+          isLoading={isLoadingMembers}
+          errorMessage={memberErrorMessage}
+        />
       )}
     </div>
   );
