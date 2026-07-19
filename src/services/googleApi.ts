@@ -16,6 +16,7 @@ import type {
   OverrunAuctionSaveItem,
   OverrunQueueItem,
 } from '../types/overrun';
+import type { WarPlannerData } from '../types/warPlanner';
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -250,5 +251,23 @@ export function confirmOverrunResult(
   return postRequest({
     action: 'confirmOverrunResult',
     ...payload,
+  });
+}
+
+export function getWarPlanner(
+  mapId: string,
+): Promise<WarPlannerData | null> {
+  return request<WarPlannerData | null>(
+    'getWarPlanner',
+    { mapId },
+  );
+}
+
+export function saveWarPlanner(
+  plan: WarPlannerData,
+): Promise<string> {
+  return postRequest({
+    action: 'saveWarPlanner',
+    plan,
   });
 }

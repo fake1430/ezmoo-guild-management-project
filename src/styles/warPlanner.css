@@ -85,8 +85,32 @@
   background: #334155;
 }
 
-.war-planner-add-phase {
+.war-planner-clone-phase {
   margin-left: auto;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #1d4ed8
+    ) !important;
+}
+
+.war-planner-clone-phase:hover:not(:disabled) {
+  border-color: #1d4ed8 !important;
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #1e40af
+    ) !important;
+  transform: translateY(-1px);
+}
+
+.war-planner-clone-phase:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .war-planner-workspace {
@@ -373,7 +397,7 @@
     flex-wrap: wrap;
   }
 
-  .war-planner-add-phase {
+  .war-planner-clone-phase {
     margin-left: 0;
   }
 
@@ -384,5 +408,1195 @@
 
   .war-planner-map-panel {
     padding: 10px;
+  }
+}
+
+
+/* =========================================================
+   WAR PLANNER MULTI-POINT ROUTES
+========================================================= */
+
+.war-planner-map-canvas.is-route-mode {
+  cursor: crosshair;
+}
+
+.war-planner-map-canvas.is-route-mode
+.war-planner-map-marker {
+  pointer-events: none;
+}
+
+.war-planner-route-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: none;
+}
+
+.war-planner-map-canvas.is-cursor-mode
+.war-planner-route-layer {
+  pointer-events: none;
+}
+
+.war-planner-map-canvas.is-cursor-mode
+.war-planner-route-path,
+.war-planner-map-canvas.is-cursor-mode
+.war-planner-route-chevron,
+.war-planner-map-canvas.is-cursor-mode
+.war-planner-route-handle {
+  pointer-events: auto;
+}
+
+.war-planner-map-canvas.is-route-mode
+.war-planner-route-path,
+.war-planner-map-canvas.is-route-mode
+.war-planner-route-chevron {
+  pointer-events: none;
+}
+
+.war-planner-route-path {
+  fill: none;
+  stroke: #dc2626;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  cursor: pointer;
+  filter:
+    drop-shadow(
+      0 2px 2px rgb(15 23 42 / 35%)
+    );
+}
+
+.war-planner-route-path.is-selected {
+  stroke: #f97316;
+  stroke-width: 6;
+}
+
+.war-planner-route-path.is-draft {
+  stroke: #2563eb;
+  stroke-width: 4;
+  stroke-dasharray: 9 7;
+  opacity: 0.92;
+}
+
+
+.war-planner-route-chevron {
+  fill: none;
+  stroke: #dc2626;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: auto;
+  cursor: pointer;
+  filter:
+    drop-shadow(
+      0 2px 2px rgb(15 23 42 / 35%)
+    );
+}
+
+.war-planner-route-chevron.is-selected {
+  stroke: #f97316;
+  stroke-width: 6;
+}
+
+.war-planner-route-chevron.is-draft {
+  stroke: #2563eb;
+  stroke-width: 4;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.war-planner-route-draft-point,
+.war-planner-route-handle {
+  stroke: #ffffff;
+  stroke-width: 2;
+  filter:
+    drop-shadow(
+      0 2px 2px rgb(15 23 42 / 35%)
+    );
+}
+
+.war-planner-route-draft-point {
+  fill: #2563eb;
+  pointer-events: none;
+}
+
+.war-planner-route-handle {
+  fill: #f59e0b;
+  cursor: grab;
+}
+
+.war-planner-route-handle:active {
+  cursor: grabbing;
+}
+
+.war-planner-route-handle.start {
+  fill: #22c55e;
+}
+
+.war-planner-route-handle.end {
+  fill: #dc2626;
+}
+
+.war-planner-finish-route,
+.war-planner-cancel-route,
+.war-planner-delete-route {
+  grid-column: 1 / -1;
+}
+
+.war-planner-finish-route {
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+  background: #16a34a !important;
+}
+
+.war-planner-finish-route:hover:not(:disabled) {
+  border-color: #15803d !important;
+  background: #15803d !important;
+}
+
+.war-planner-cancel-route {
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+}
+
+.war-planner-delete-route {
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+  background: #ffffff !important;
+}
+
+.war-planner-delete-route:hover:not(:disabled) {
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  background: #dc2626 !important;
+}
+
+.war-planner-finish-route:disabled,
+.war-planner-delete-route:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+
+/* =========================================================
+   WAR PLANNER NOTES & CALLOUT DIALOG
+========================================================= */
+
+.war-planner-map-canvas.is-note-mode {
+  cursor: text;
+}
+
+.war-planner-map-canvas.is-note-mode
+.war-planner-map-marker,
+.war-planner-map-canvas.is-note-mode
+.war-planner-route-layer {
+  pointer-events: none;
+}
+
+.war-planner-map-note {
+  --note-bg: #fef08a;
+  --note-border: #facc15;
+  --note-anchor: #ca8a04;
+
+  position: absolute;
+  z-index: 16;
+  display: block;
+  width: max-content;
+  min-width: 190px;
+  max-width: 340px;
+  padding: 15px 19px;
+  border: 2px solid #ffffff;
+  border-radius: 13px;
+  color: #111827;
+  background: var(--note-bg);
+  box-shadow:
+    0 8px 20px rgb(15 23 42 / 28%);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre-wrap;
+  cursor: grab;
+  transform:
+    translate(-50%, calc(-100% - 28px));
+  user-select: none;
+  touch-action: none;
+}
+
+.war-planner-map-note::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border: 2px solid var(--note-border);
+  border-radius: 13px;
+}
+
+.war-planner-note-text {
+  position: relative;
+  z-index: 2;
+  display: block;
+}
+
+.war-planner-note-tail {
+  position: absolute;
+  bottom: -29px;
+  left: 50%;
+  width: 3px;
+  height: 29px;
+  background: var(--note-anchor);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.war-planner-note-anchor {
+  position: absolute;
+  bottom: -37px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--note-anchor);
+  box-shadow:
+    0 3px 8px rgb(15 23 42 / 30%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.war-planner-map-note.tone-danger {
+  --note-bg: #fecaca;
+  --note-border: #ef4444;
+  --note-anchor: #dc2626;
+}
+
+.war-planner-map-note.tone-success {
+  --note-bg: #bbf7d0;
+  --note-border: #22c55e;
+  --note-anchor: #16a34a;
+}
+
+.war-planner-map-note:hover {
+  z-index: 22;
+  filter: brightness(1.02);
+}
+
+.war-planner-map-note.is-dragging {
+  z-index: 30;
+  cursor: grabbing;
+  box-shadow:
+    0 12px 28px rgb(15 23 42 / 42%);
+  scale: 1.03;
+}
+
+.war-planner-map-canvas:not(.is-cursor-mode)
+.war-planner-map-note {
+  pointer-events: none;
+}
+
+.war-planner-note-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: blur(5px);
+}
+
+.war-planner-note-dialog {
+  width: min(100%, 450px);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 28px 70px rgb(15 23 42 / 34%);
+}
+
+.war-planner-note-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.war-planner-note-dialog h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 19px;
+}
+
+.war-planner-note-dialog p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.war-planner-note-dialog-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.war-planner-note-dialog-close:hover {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.war-planner-note-dialog-body {
+  display: grid;
+  gap: 13px;
+  padding: 16px 20px;
+}
+
+.war-planner-note-dialog-body label {
+  display: grid;
+  gap: 8px;
+}
+
+.war-planner-note-dialog-body label > span,
+.war-planner-note-tone-picker > span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.war-planner-note-dialog textarea {
+  width: 100%;
+  min-height: 88px;
+  max-height: 150px;
+  resize: vertical;
+  padding: 11px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  outline: none;
+  color: #0f172a;
+  background: #f8fafc;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.war-planner-note-dialog textarea:focus {
+  border-color: #64748b;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgb(100 116 139 / 12%);
+}
+
+.war-planner-note-tone-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.war-planner-note-tone-picker > div {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.war-planner-note-tone-picker button {
+  min-height: 36px;
+  border: 1px solid #eab308;
+  border-radius: 10px;
+  color: #854d0e;
+  background: #fef9c3;
+  font-weight: 900;
+}
+
+.war-planner-note-tone-picker button.danger {
+  color: #991b1b;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.war-planner-note-tone-picker button.success {
+  color: #166534;
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.war-planner-note-tone-picker button.active {
+  box-shadow:
+    0 0 0 3px rgb(234 179 8 / 22%);
+  transform: translateY(-1px);
+}
+
+.war-planner-note-tone-picker button.active.danger {
+  box-shadow:
+    0 0 0 3px rgb(239 68 68 / 20%);
+}
+
+.war-planner-note-tone-picker button.active.success {
+  box-shadow:
+    0 0 0 3px rgb(34 197 94 / 20%);
+}
+
+.war-planner-note-preview {
+  position: relative;
+  min-height: 54px;
+  padding: 11px 14px;
+  border: 2px solid #eab308;
+  border-radius: 13px;
+  color: #111827;
+  background: #fef08a;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.war-planner-note-preview.tone-danger {
+  border-color: #ef4444;
+  background: #fecaca;
+}
+
+.war-planner-note-preview.tone-success {
+  border-color: #22c55e;
+  background: #bbf7d0;
+}
+
+.war-planner-note-dialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 13px 20px 17px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.war-planner-note-dialog > footer button {
+  min-width: 96px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+.war-planner-note-dialog > footer .secondary {
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  background: #ffffff;
+}
+
+.war-planner-note-dialog > footer .primary {
+  border: 1px solid #2563eb;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.war-planner-note-dialog > footer .primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 600px) {
+  .war-planner-note-dialog {
+    width: 100%;
+  }
+
+  .war-planner-note-tone-picker > div {
+    grid-template-columns: 1fr;
+  }
+
+  .war-planner-note-dialog > footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+
+
+
+/* Selected objects & right-click delete */
+.war-planner-map-marker.is-selected {
+  outline: 4px solid rgb(59 130 246 / 45%);
+  outline-offset: 3px;
+}
+
+.war-planner-map-note.is-selected {
+  box-shadow:
+    0 0 0 4px rgb(59 130 246 / 35%),
+    0 10px 24px rgb(15 23 42 / 32%);
+}
+
+
+/* =========================================================
+   WAR PLANNER AREAS
+========================================================= */
+
+.war-planner-map-canvas.is-area-mode {
+  cursor: crosshair;
+}
+
+.war-planner-map-canvas.is-area-mode
+.war-planner-map-marker,
+.war-planner-map-canvas.is-area-mode
+.war-planner-map-note,
+.war-planner-map-canvas.is-area-mode
+.war-planner-route-layer {
+  pointer-events: none;
+}
+
+.war-planner-map-area {
+  --area-color: 239 68 68;
+
+  position: absolute;
+  z-index: 6;
+  min-width: 24px;
+  min-height: 24px;
+  border: 3px solid rgb(var(--area-color) / 78%);
+  border-radius: 50%;
+  background:
+    rgb(var(--area-color) / 22%);
+  box-shadow:
+    inset 0 0 22px
+      rgb(var(--area-color) / 18%),
+    0 4px 14px rgb(15 23 42 / 16%);
+  cursor: grab;
+  transform:
+    translate(-50%, -50%);
+  touch-action: none;
+  user-select: none;
+}
+
+.war-planner-map-area.tone-warning {
+  --area-color: 234 179 8;
+}
+
+.war-planner-map-area.tone-safe {
+  --area-color: 34 197 94;
+}
+
+.war-planner-map-area.is-selected {
+  z-index: 8;
+  border-style: dashed;
+  box-shadow:
+    0 0 0 4px
+      rgb(var(--area-color) / 28%),
+    inset 0 0 22px
+      rgb(var(--area-color) / 20%);
+}
+
+.war-planner-map-area.is-dragging {
+  z-index: 10;
+  cursor: grabbing;
+}
+
+.war-planner-map-area.is-draft {
+  z-index: 9;
+  border-style: dashed;
+  pointer-events: none;
+}
+
+.war-planner-map-canvas:not(.is-cursor-mode)
+.war-planner-map-area:not(.is-draft) {
+  pointer-events: none;
+}
+
+.war-planner-area-resize {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background:
+    rgb(var(--area-color));
+  box-shadow:
+    0 3px 8px rgb(15 23 42 / 32%);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.war-planner-area-tones {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+  gap: 7px;
+  padding: 7px;
+  border: 1px solid #dbe4f0;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.war-planner-area-tones button {
+  min-height: 28px;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 7px;
+  box-shadow:
+    0 0 0 1px #cbd5e1;
+}
+
+.war-planner-area-tones button.danger {
+  background: #ef4444;
+}
+
+.war-planner-area-tones button.warning {
+  background: #eab308;
+}
+
+.war-planner-area-tones button.safe {
+  background: #22c55e;
+}
+
+.war-planner-area-tones button.active {
+  box-shadow:
+    0 0 0 3px rgb(59 130 246 / 34%);
+  transform: scale(1.04);
+}
+
+
+/* =========================================================
+   WAR PLANNER 4-PHASE CAPTURE
+========================================================= */
+
+.war-planner-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.war-planner-capture-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #60a5fa;
+  border-radius: 9px;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #1d4ed8
+    );
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.war-planner-capture-button:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.war-planner-capture-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.war-planner-capture-stage {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  width: 1800px;
+  pointer-events: none;
+}
+
+.war-planner-capture-grid {
+  display: grid;
+  width: 1800px;
+  grid-template-columns:
+    repeat(2, 880px);
+  gap: 20px;
+  padding: 20px;
+  background: #e2e8f0;
+}
+
+.war-planner-capture-card {
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow:
+    0 8px 22px rgb(15 23 42 / 15%);
+}
+
+.war-planner-capture-label {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      135deg,
+      #1e293b,
+      #334155
+    );
+  font-size: 23px;
+  font-weight: 900;
+}
+
+.war-planner-capture-map {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.war-planner-capture-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.war-planner-capture-route-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.war-planner-capture-route,
+.war-planner-capture-chevron {
+  fill: none;
+  stroke: #dc2626;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(
+      0 2px 2px rgb(15 23 42 / 35%)
+    );
+}
+
+.war-planner-capture-area {
+  --area-color: 239 68 68;
+
+  position: absolute;
+  z-index: 5;
+  border: 3px solid
+    rgb(var(--area-color) / 78%);
+  border-radius: 50%;
+  background:
+    rgb(var(--area-color) / 22%);
+  transform:
+    translate(-50%, -50%);
+}
+
+.war-planner-capture-area.tone-warning {
+  --area-color: 234 179 8;
+}
+
+.war-planner-capture-area.tone-safe {
+  --area-color: 34 197 94;
+}
+
+.war-planner-capture-marker {
+  position: absolute;
+  z-index: 12;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      145deg,
+      #475569,
+      #0f172a
+    );
+  box-shadow:
+    0 5px 14px rgb(15 23 42 / 38%);
+  font-size: 18px;
+  font-weight: 900;
+  transform:
+    translate(-50%, -50%);
+}
+
+.war-planner-capture-note {
+  --note-bg: #fef08a;
+  --note-border: #facc15;
+  --note-anchor: #ca8a04;
+
+  position: absolute;
+  z-index: 14;
+  width: max-content;
+  min-width: 155px;
+  max-width: 280px;
+  padding: 12px 15px;
+  border: 2px solid var(--note-border);
+  border-radius: 12px;
+  color: #111827;
+  background: var(--note-bg);
+  box-shadow:
+    0 7px 18px rgb(15 23 42 / 26%);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: center;
+  white-space: pre-wrap;
+  transform:
+    translate(-50%, calc(-100% - 25px));
+}
+
+.war-planner-capture-note.tone-danger {
+  --note-bg: #fecaca;
+  --note-border: #ef4444;
+  --note-anchor: #dc2626;
+}
+
+.war-planner-capture-note.tone-success {
+  --note-bg: #bbf7d0;
+  --note-border: #22c55e;
+  --note-anchor: #16a34a;
+}
+
+.war-planner-capture-note-tail {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  width: 3px;
+  height: 26px;
+  background: var(--note-anchor);
+  transform: translateX(-50%);
+}
+
+.war-planner-capture-note-anchor {
+  position: absolute;
+  bottom: -34px;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--note-anchor);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 600px) {
+  .war-planner-toolbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* =========================================================
+   WAR PLANNER CAPTURE BUTTON VARIANTS
+========================================================= */
+
+.war-planner-capture-button.current {
+  border-color: #60a5fa;
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #1d4ed8
+    );
+}
+
+.war-planner-capture-button.all {
+  border-color: #a78bfa;
+  background:
+    linear-gradient(
+      135deg,
+      #8b5cf6,
+      #6d28d9
+    );
+}
+
+/* =========================================================
+   WAR PLANNER CLEAR PHASE
+========================================================= */
+
+.war-planner-clear-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #fb923c;
+  border-radius: 9px;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      135deg,
+      #f97316,
+      #c2410c
+    );
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.war-planner-clear-button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.war-planner-clear-button:active {
+  transform: translateY(0);
+}
+
+.war-planner-clear-dialog-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.war-planner-clear-dialog-body > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.war-planner-clear-dialog-phase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+
+.war-planner-clear-dialog-phase span {
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.war-planner-clear-dialog-phase strong {
+  color: #c2410c;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.war-planner-clear-dialog > footer
+.war-planner-clear-confirm {
+  min-width: 110px;
+  border: 1px solid #ea580c;
+  color: #ffffff;
+  background: #ea580c;
+}
+
+.war-planner-clear-dialog > footer
+.war-planner-clear-confirm:hover {
+  border-color: #c2410c;
+  background: #c2410c;
+}
+
+/* =========================================================
+   WAR PLANNER MAP TABS
+========================================================= */
+
+.war-planner-map-tabs {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 7%);
+}
+
+.war-planner-map-tabs-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.war-planner-map-tabs-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.war-planner-map-tabs-eyebrow {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.war-planner-map-tabs-header h3,
+.war-planner-map-tabs-header p {
+  margin: 0;
+}
+
+.war-planner-map-tabs-header h3 {
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.war-planner-map-tabs-header p {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.war-planner-map-tabs-list {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(220px, 280px)
+  );
+  gap: 10px;
+}
+
+.war-planner-map-tab {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 12px 14px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 13px;
+  color: #334155;
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #f8fafc
+    );
+  box-shadow: 0 3px 9px rgb(15 23 42 / 6%);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+
+.war-planner-map-tab::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: transparent;
+}
+
+.war-planner-map-tab:hover:not(:disabled) {
+  border-color: #94a3b8;
+  box-shadow: 0 8px 18px rgb(15 23 42 / 11%);
+  transform: translateY(-2px);
+}
+
+.war-planner-map-tab.active {
+  color: #ffffff;
+  border-color: #334155;
+  background:
+    linear-gradient(
+      135deg,
+      #334155,
+      #0f172a
+    );
+  box-shadow: 0 9px 22px rgb(15 23 42 / 20%);
+}
+
+.war-planner-map-tab.active::after {
+  background:
+    linear-gradient(
+      90deg,
+      #60a5fa,
+      #a78bfa
+    );
+}
+
+.war-planner-map-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.war-planner-map-tab-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgb(15 23 42 / 9%);
+  font-size: 22px;
+}
+
+.war-planner-map-tab.active
+.war-planner-map-tab-icon {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 10%);
+  box-shadow: none;
+}
+
+.war-planner-map-tab-content {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.war-planner-map-tab-content strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.war-planner-map-tab-content small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.war-planner-map-tab.active
+.war-planner-map-tab-content small {
+  color: #cbd5e1;
+}
+
+.war-planner-map-tab-status {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid #dbe4f0;
+  border-radius: 999px;
+  color: #64748b;
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.war-planner-map-tab.active
+.war-planner-map-tab-status {
+  color: #ffffff;
+  border-color: #22c55e;
+  background: #16a34a;
+}
+
+@media (max-width: 600px) {
+  .war-planner-map-tabs-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .war-planner-map-tabs-list {
+    grid-template-columns: 1fr;
   }
 }
