@@ -1,7 +1,9 @@
 import {
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { toBlob } from 'html-to-image';
 
 import { getClassColor } from '../../constants/classColors';
 import { useAttendance } from '../../hooks/useAttendance';
@@ -140,6 +142,9 @@ export function AttendancePage({
   memberErrorMessage,
   onReloadMembers,
 }: AttendancePageProps) {
+  const captureAreaRef =
+    useRef<HTMLDivElement | null>(null);
+
   const [eventDate, setEventDate] =
     useState(() =>
       getNextWarDate(
@@ -168,6 +173,14 @@ export function AttendancePage({
 
   const [sortMode, setSortMode] =
     useState<AttendanceSortMode>('class');
+
+  const [
+    isCapturing,
+    setIsCapturing,
+  ] = useState(false);
+
+  const [copied, setCopied] =
+    useState(false);
 
   const {
     attendanceMembers,
@@ -370,6 +383,65 @@ export function AttendancePage({
       searchText,
     ]);
 
+  const captureLists = useMemo(() => {
+    const compareIgn = (
+      firstIgn: string,
+      secondIgn: string,
+    ): number => {
+      return firstIgn.localeCompare(
+        secondIgn,
+        'en',
+        {
+          sensitivity: 'base',
+          numeric: true,
+        },
+      );
+    };
+
+    const leaveMembers =
+      attendanceMembers
+        .filter(
+          (member) =>
+            member.warStatus ===
+            'Leave',
+        )
+        .map((member) => member.ign)
+        .sort(compareIgn);
+
+    const absentMembers =
+      attendanceMembers
+        .filter(
+          (member) =>
+            member.warStatus ===
+            'Absent',
+        )
+        .map((member) => member.ign)
+        .sort(compareIgn);
+
+    const discordOfflineMembers =
+      attendanceMembers
+        .filter(
+          (member) =>
+            member.warStatus ===
+              'Present' &&
+            member.discordStatus ===
+              'Offline',
+        )
+        .map((member) => member.ign)
+        .sort(compareIgn);
+
+    return {
+      leaveMembers,
+      absentMembers,
+      discordOfflineMembers,
+    };
+  }, [attendanceMembers]);
+
+  const attendanceCaptureTitle =
+    eventType === 'GuildLeague'
+      ? 'Guild League Attendance'
+      : 'Overrun Attendance';
+
   const hasAttendanceData =
     attendanceMembers.some(
       (member) =>
@@ -455,6 +527,73 @@ export function AttendancePage({
           nextEventType,
         ),
       );
+    }
+  }
+
+  async function handleCopyAttendanceImage(): Promise<void> {
+    const captureElement =
+      captureAreaRef.current;
+
+    if (!captureElement) {
+      return;
+    }
+
+    try {
+      setIsCapturing(true);
+
+      const blob = await toBlob(
+        captureElement,
+        {
+          backgroundColor: '#ffffff',
+          pixelRatio: 2,
+          cacheBust: true,
+        },
+      );
+
+      if (!blob) {
+        throw new Error(
+          'สร้างภาพไม่สำเร็จ',
+        );
+      }
+
+      if (
+        !navigator.clipboard ||
+        typeof ClipboardItem ===
+          'undefined'
+      ) {
+        throw new Error(
+          'เบราว์เซอร์นี้ไม่รองรับการคัดลอกรูปภาพ',
+        );
+      }
+
+      const pngBlob =
+        blob.type === 'image/png'
+          ? blob
+          : new Blob(
+              [blob],
+              {
+                type: 'image/png',
+              },
+            );
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': pngBlob,
+        }),
+      ]);
+
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error(
+        'ไม่สามารถคัดลอกรูปสรุปเช็กชื่อได้',
+        error,
+      );
+    } finally {
+      setIsCapturing(false);
     }
   }
 
@@ -784,6 +923,27 @@ export function AttendancePage({
             {isPageLoading
               ? 'กำลังโหลด...'
               : 'โหลดใหม่'}
+          </button>
+
+          <button
+            type="button"
+            className="attendance-capture-button"
+            onClick={() => {
+              setIsBulkMenuOpen(false);
+              void handleCopyAttendanceImage();
+            }}
+            disabled={
+              isPageLoading ||
+              isCapturing ||
+              attendanceMembers.length ===
+                0
+            }
+          >
+            {isCapturing
+              ? 'กำลังสร้างภาพ...'
+              : copied
+                ? '✓ คัดลอกแล้ว'
+                : '📷 คัดลอกรูป'}
           </button>
 
           <button
@@ -1163,6 +1323,76 @@ export function AttendancePage({
             )}
           </section>
         )}
+
+      <div className="attendance-discord-capture-wrapper">
+        <section
+          ref={captureAreaRef}
+          className="attendance-discord-capture"
+        >
+          <header className="attendance-discord-capture-header">
+            <h2>{attendanceCaptureTitle}</h2>
+            <div>{eventDate}</div>
+          </header>
+
+          <div className="attendance-discord-divider" />
+
+          <section className="attendance-discord-present">
+            <span>✅ มา</span>
+            <strong>{summary.present}</strong>
+          </section>
+
+          {captureLists.leaveMembers.length > 0 && (
+            <section className="attendance-discord-section leave">
+              <h3>🟠 ลา</h3>
+              <div className="attendance-discord-name-list">
+                {captureLists.leaveMembers.map(
+                  (memberName) => (
+                    <div key={`leave-${memberName}`}>
+                      {memberName}
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+
+          {captureLists.absentMembers.length > 0 && (
+            <section className="attendance-discord-section absent">
+              <h3>🔴 ขาด</h3>
+              <div className="attendance-discord-name-list">
+                {captureLists.absentMembers.map(
+                  (memberName) => (
+                    <div key={`absent-${memberName}`}>
+                      {memberName}
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+
+          {captureLists.discordOfflineMembers.length >
+            0 && (
+            <section className="attendance-discord-section discord-offline">
+              <h3>🎧 ไม่ออนดิส</h3>
+              <div className="attendance-discord-name-list">
+                {captureLists.discordOfflineMembers.map(
+                  (memberName) => (
+                    <div
+                      key={`discord-offline-${memberName}`}
+                    >
+                      {memberName}
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          )}
+
+          <div className="attendance-discord-divider bottom" />
+        </section>
+      </div>
+
     </main>
   );
 }

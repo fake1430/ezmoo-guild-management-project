@@ -596,3 +596,167 @@
     grid-column: 1;
   }
 }
+
+/* =========================================================
+   ATTENDANCE — CAPTURE SUMMARY
+========================================================= */
+
+.attendance-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.attendance-capture-button {
+  padding: 9px 15px;
+  border: 1px solid #a78bfa;
+  border-radius: 8px;
+  color: #ffffff;
+  background:
+    linear-gradient(
+      135deg,
+      #9333ea,
+      #7e22ce
+    );
+  box-shadow:
+    0 6px 14px rgb(126 34 206 / 24%);
+  font-weight: 700;
+}
+
+.attendance-capture-button:hover:not(:disabled) {
+  border-color: #c4b5fd;
+  background:
+    linear-gradient(
+      135deg,
+      #7e22ce,
+      #6b21a8
+    );
+  transform: translateY(-1px);
+}
+
+.attendance-capture-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.attendance-discord-capture-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.attendance-discord-capture {
+  width: 760px;
+  padding: 34px 38px;
+  color: #1e293b;
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.attendance-discord-capture-header {
+  text-align: center;
+}
+
+.attendance-discord-capture-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 31px;
+  font-weight: 900;
+}
+
+.attendance-discord-capture-header div {
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.attendance-discord-divider {
+  height: 3px;
+  margin: 24px 0;
+  border-radius: 999px;
+  background: #334155;
+}
+
+.attendance-discord-divider.bottom {
+  margin: 28px 0 0;
+}
+
+.attendance-discord-present {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  background: #f0fdf4;
+}
+
+.attendance-discord-present span {
+  color: #166534;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.attendance-discord-present strong {
+  color: #15803d;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.attendance-discord-section {
+  margin-top: 22px;
+  padding: 20px 22px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.attendance-discord-section.leave {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.attendance-discord-section.absent {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.attendance-discord-section.discord-offline {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+}
+
+.attendance-discord-section h3 {
+  margin: 0 0 14px;
+  color: #1e293b;
+  font-size: 23px;
+  font-weight: 900;
+}
+
+.attendance-discord-name-list {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 9px 18px;
+}
+
+.attendance-discord-name-list div {
+  min-width: 0;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .attendance-capture-button {
+    width: 100%;
+  }
+}
