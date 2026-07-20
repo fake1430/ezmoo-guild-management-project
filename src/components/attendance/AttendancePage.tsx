@@ -29,6 +29,11 @@ interface AttendanceSummary {
   discordOnline: number;
 }
 
+type AttendanceSortMode =
+  | 'class'
+  | 'ign'
+  | 'status';
+
 function getTodayDate(): string {
   const today = new Date();
 
@@ -159,7 +164,10 @@ export function AttendancePage({
   ] = useState(false);
 
   const [searchText, setSearchText] =
-  useState('');
+    useState('');
+
+  const [sortMode, setSortMode] =
+    useState<AttendanceSortMode>('class');
 
   const {
     attendanceMembers,
@@ -229,6 +237,30 @@ export function AttendancePage({
 
   const sortedAttendanceMembers =
     useMemo(() => {
+      const compareIgn = (
+        firstIgn: string,
+        secondIgn: string,
+      ): number => {
+        return firstIgn.localeCompare(
+          secondIgn,
+          'en',
+          {
+            sensitivity: 'base',
+            numeric: true,
+          },
+        );
+      };
+
+      const statusOrder: Record<
+        WarStatus,
+        number
+      > = {
+        '': 0,
+        Present: 1,
+        Leave: 2,
+        Absent: 3,
+      };
+
       return [
         ...attendanceMembers,
       ].sort(
@@ -236,23 +268,34 @@ export function AttendancePage({
           firstMember,
           secondMember,
         ) => {
-          const firstIsChecked =
-            firstMember.warStatus !== '';
+          if (sortMode === 'ign') {
+            return compareIgn(
+              firstMember.ign,
+              secondMember.ign,
+            );
+          }
 
-          const secondIsChecked =
-            secondMember.warStatus !== '';
-
-          /*
-           * คนที่ยังไม่ได้เช็กอยู่ด้านบน
-           * คนที่เช็กแล้วอยู่ด้านล่าง
-           */
           if (
-            firstIsChecked !==
-            secondIsChecked
+            sortMode === 'status'
           ) {
-            return firstIsChecked
-              ? 1
-              : -1;
+            const statusComparison =
+              statusOrder[
+                firstMember.warStatus
+              ] -
+              statusOrder[
+                secondMember.warStatus
+              ];
+
+            if (
+              statusComparison !== 0
+            ) {
+              return statusComparison;
+            }
+
+            return compareIgn(
+              firstMember.ign,
+              secondMember.ign,
+            );
           }
 
           const firstClass =
@@ -262,7 +305,7 @@ export function AttendancePage({
             secondMember.className.trim();
 
           /*
-           * คนที่ไม่มีอาชีพอยู่ท้ายกลุ่ม
+           * คนที่ไม่มีอาชีพอยู่ท้ายรายการ
            */
           if (
             !firstClass &&
@@ -293,40 +336,39 @@ export function AttendancePage({
             return classComparison;
           }
 
-          return firstMember.ign.localeCompare(
+          return compareIgn(
+            firstMember.ign,
             secondMember.ign,
-            'en',
-            {
-              sensitivity: 'base',
-              numeric: true,
-            },
           );
         },
       );
-    }, [attendanceMembers]);
+    }, [
+      attendanceMembers,
+      sortMode,
+    ]);
 
-    const filteredAttendanceMembers =
-  useMemo(() => {
-    const keyword =
-      searchText.trim().toLowerCase();
+  const filteredAttendanceMembers =
+    useMemo(() => {
+      const keyword =
+        searchText.trim().toLowerCase();
 
-    if (!keyword) {
-      return sortedAttendanceMembers;
-    }
+      if (!keyword) {
+        return sortedAttendanceMembers;
+      }
 
-    return sortedAttendanceMembers.filter(
-      (member) =>
-        member.ign
-          .toLowerCase()
-          .includes(keyword) ||
-        member.className
-          .toLowerCase()
-          .includes(keyword),
-    );
-  }, [
-    sortedAttendanceMembers,
-    searchText,
-  ]);
+      return sortedAttendanceMembers.filter(
+        (member) =>
+          member.ign
+            .toLowerCase()
+            .includes(keyword) ||
+          member.className
+            .toLowerCase()
+            .includes(keyword),
+      );
+    }, [
+      sortedAttendanceMembers,
+      searchText,
+    ]);
 
   const hasAttendanceData =
     attendanceMembers.some(
@@ -820,15 +862,43 @@ export function AttendancePage({
       )}
 
       <section className="attendance-search">
-  <input
-    type="text"
-    placeholder="🔍 ค้นหา IGN หรือ Class..."
-    value={searchText}
-    onChange={(event) =>
-      setSearchText(event.target.value)
-    }
-  />
-</section>
+        <input
+          type="text"
+          placeholder="🔍 ค้นหา IGN หรือ Class..."
+          value={searchText}
+          onChange={(event) =>
+            setSearchText(
+              event.target.value,
+            )
+          }
+        />
+
+        <label className="attendance-sort-control">
+          <span>เรียงตาม</span>
+
+          <select
+            value={sortMode}
+            onChange={(event) =>
+              setSortMode(
+                event.target
+                  .value as AttendanceSortMode,
+              )
+            }
+          >
+            <option value="class">
+              อาชีพ
+            </option>
+
+            <option value="ign">
+              IGN (A-Z)
+            </option>
+
+            <option value="status">
+              สถานะวอ
+            </option>
+          </select>
+        </label>
+      </section>
 
       <section className="attendance-summary-grid">
         <article className="attendance-summary-card present">
