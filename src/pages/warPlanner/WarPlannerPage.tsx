@@ -19,6 +19,7 @@ import {
   saveWarPlanner,
 } from '../../services/googleApi';
 import type { WarPlannerData } from '../../types/warPlanner';
+import fallenValkyrieMap from '../../assets/warPlanner/fallen-valkyrie.png';
 import stellarClashMap from '../../assets/warPlanner/stellar-clash.png';
 import valeOfClashMap from '../../assets/warPlanner/vale-of-clash.png';
 
@@ -38,6 +39,11 @@ const WAR_MAPS: WarMapDefinition[] = [
     id: 'vale-of-clash',
     label: 'Vale of Clash',
     image: valeOfClashMap,
+  },
+  {
+    id: 'fallen-valkyrie',
+    label: 'Fallen Valkyrie',
+    image: fallenValkyrieMap,
   },
 ];
 
