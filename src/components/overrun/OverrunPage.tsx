@@ -6,6 +6,7 @@ import {
 import { toBlob } from 'html-to-image';
 
 import { useOverrunAuction } from '../../hooks/useOverrunAuction';
+import { OVERRUN_QUEUE_SIZE } from '../../constants/overrun';
 
 import type { Member } from '../../types/member';
 import type {
@@ -22,8 +23,6 @@ interface OverrunPageProps {
   members: Member[];
   isLoadingMembers: boolean;
 }
-
-const CURRENT_QUEUE_SIZE = 13;
 
 function getTodayDate(): string {
   const today = new Date();
@@ -600,7 +599,7 @@ export function OverrunPage({
             isConfirming ||
             !selectedResult ||
             currentQueue.length <
-                CURRENT_QUEUE_SIZE ||
+                OVERRUN_QUEUE_SIZE ||
             (selectedResult === 'lose' &&
                 !noItemMember)
             }
@@ -695,7 +694,7 @@ export function OverrunPage({
                   }}
                 >
                   <option value="">
-                    เลือกจาก 13 คน
+                    เลือกจาก {OVERRUN_QUEUE_SIZE} คน
                   </option>
 
                   {currentQueue.map((item) => (
@@ -722,7 +721,7 @@ export function OverrunPage({
               <span>คิวปัจจุบัน</span>
               <strong>
                 {currentQueue.length}/
-                {CURRENT_QUEUE_SIZE}
+                {OVERRUN_QUEUE_SIZE}
               </strong>
             </article>
 
@@ -1117,7 +1116,7 @@ export function OverrunPage({
             <div className="overrun-manager-grid">
               <QueueList
                 title="Current Queue"
-                description="13 คนในรอบปัจจุบัน"
+                description={`${OVERRUN_QUEUE_SIZE} คนในรอบปัจจุบัน`}
                 queue={currentQueue}
                 startIndex={0}
                 onRemove={
@@ -1131,7 +1130,7 @@ export function OverrunPage({
                 description="สมาชิกที่รอรอบถัดไป"
                 queue={waitingQueue}
                 startIndex={
-                  CURRENT_QUEUE_SIZE
+                  OVERRUN_QUEUE_SIZE
                 }
                 onRemove={
                   removeMemberFromQueue
@@ -1190,7 +1189,7 @@ export function OverrunPage({
               <div>
                 <h3>ตั้งค่าจำนวนทั้งหน้า</h3>
                 <p>
-                  ใช้ค่ากับคิวปัจจุบันทั้ง 13 คน
+                  ใช้ค่ากับคิวปัจจุบันทั้ง {OVERRUN_QUEUE_SIZE} คน
                 </p>
               </div>
 
@@ -1353,7 +1352,7 @@ export function OverrunPage({
                   {preview.queueBefore
                     .slice(
                       0,
-                      CURRENT_QUEUE_SIZE,
+                      OVERRUN_QUEUE_SIZE,
                     )
                     .map(
                       (
@@ -1381,7 +1380,7 @@ export function OverrunPage({
                   {preview.queueAfter
                     .slice(
                       0,
-                      CURRENT_QUEUE_SIZE,
+                      OVERRUN_QUEUE_SIZE,
                     )
                     .map(
                       (

@@ -12,6 +12,7 @@ import {
   saveOverrunAuction,
   saveOverrunQueue,
 } from '../services/googleApi';
+import { OVERRUN_QUEUE_SIZE } from '../constants/overrun';
 
 import type {
   ConfirmOverrunResultPayload,
@@ -21,8 +22,6 @@ import type {
   OverrunQueueItem,
   OverrunResult,
 } from '../types/overrun';
-
-const CURRENT_QUEUE_SIZE = 13;
 
 const DEFAULT_CARD_COUNT = 2;
 const DEFAULT_WHITE_FEATHER_COUNT = 8;
@@ -139,12 +138,12 @@ export function useOverrunAuction({
   const [saveMessage, setSaveMessage] = useState('');
 
   const currentQueue = useMemo(
-    () => queue.slice(0, CURRENT_QUEUE_SIZE),
+    () => queue.slice(0, OVERRUN_QUEUE_SIZE),
     [queue],
   );
 
   const waitingQueue = useMemo(
-    () => queue.slice(CURRENT_QUEUE_SIZE),
+    () => queue.slice(OVERRUN_QUEUE_SIZE),
     [queue],
   );
 
@@ -230,7 +229,7 @@ export function useOverrunAuction({
           buildAuctionRows(
             normalizedQueue.slice(
               0,
-              CURRENT_QUEUE_SIZE,
+              OVERRUN_QUEUE_SIZE,
             ),
             savedRows,
           ),
@@ -495,8 +494,10 @@ export function useOverrunAuction({
       return false;
     }
 
-    if (currentQueue.length < CURRENT_QUEUE_SIZE) {
-      setErrorMessage('คิวรอบปัจจุบันต้องมีครบ 13 คนก่อนยืนยันผล');
+    if (currentQueue.length < OVERRUN_QUEUE_SIZE) {
+      setErrorMessage(
+        `คิวรอบปัจจุบันต้องมีครบ ${OVERRUN_QUEUE_SIZE} คนก่อนยืนยันผล`,
+      );
       return false;
     }
 
@@ -504,7 +505,7 @@ export function useOverrunAuction({
     let queueAfter: string[];
 
     if (result === 'win') {
-      queueAfter = queueBefore.slice(CURRENT_QUEUE_SIZE);
+      queueAfter = queueBefore.slice(OVERRUN_QUEUE_SIZE);
     } else {
       const cleanNoItemMember = noItemMember.trim();
 
@@ -515,14 +516,14 @@ export function useOverrunAuction({
         )
       ) {
         setErrorMessage(
-          'กรุณาเลือกคนที่ไม่ได้ของจาก 13 คนในรอบนี้',
+          `กรุณาเลือกคนที่ไม่ได้ของจาก ${OVERRUN_QUEUE_SIZE} คนในรอบนี้`,
         );
         return false;
       }
 
       queueAfter = [
         cleanNoItemMember,
-        ...queueBefore.slice(CURRENT_QUEUE_SIZE),
+        ...queueBefore.slice(OVERRUN_QUEUE_SIZE),
       ];
     }
 
