@@ -391,9 +391,48 @@ export function OverrunPage({
   }
 
   function handleShuffleQueue(): void {
-    const memberNamesToShuffle = members
-      .map((member) => member.ign.trim())
-      .filter(Boolean);
+    const queuedNames = new Set(
+      queue.map((item) => item.memberName.trim()),
+    );
+
+    const queuedMemberIds = new Set(
+      members
+        .filter((member) =>
+          queuedNames.has(member.ign.trim()),
+        )
+        .map((member) => member.memberId.trim())
+        .filter(Boolean),
+    );
+
+    const seenMemberIds = new Set(queuedMemberIds);
+    const seenMemberNames = new Set(queuedNames);
+
+    const memberNamesToShuffle = members.reduce<string[]>(
+      (memberNames, member) => {
+        const memberId = member.memberId.trim();
+        const memberName = member.ign.trim();
+
+        if (
+          !memberName ||
+          queuedNames.has(memberName) ||
+          (memberId && queuedMemberIds.has(memberId)) ||
+          (memberId && seenMemberIds.has(memberId)) ||
+          seenMemberNames.has(memberName)
+        ) {
+          return memberNames;
+        }
+
+        if (memberId) {
+          seenMemberIds.add(memberId);
+        }
+
+        seenMemberNames.add(memberName);
+        memberNames.push(memberName);
+
+        return memberNames;
+      },
+      [],
+    );
 
     if (memberNamesToShuffle.length === 0) {
       return;
@@ -401,10 +440,10 @@ export function OverrunPage({
 
     const confirmed = window.confirm(
       [
-        'ต้องการสุ่มคิว Overrun ใหม่ทั้งกิลหรือไม่?',
+        'ต้องการสุ่มสมาชิกใหม่ต่อท้ายคิว Overrun หรือไม่?',
         '',
-        `สมาชิกทั้งหมด ${memberNamesToShuffle.length} คน`,
-        'คิวปัจจุบันจะถูกแทนที่ทั้งหมด',
+        `สมาชิกใหม่ ${memberNamesToShuffle.length} คน`,
+        `คิวปัจจุบัน ${queue.length} คนจะคงลำดับเดิม`,
         'หลังสุ่มแล้วต้องกด "บันทึกคิว" อีกครั้ง',
       ].join('\n'),
     );
@@ -413,7 +452,10 @@ export function OverrunPage({
       return;
     }
 
-    replaceQueue(shuffle(memberNamesToShuffle));
+    replaceQueue([
+      ...queue.map((item) => item.memberName),
+      ...shuffle(memberNamesToShuffle),
+    ]);
     setSelectedMember('');
     setSelectedResult('');
     setNoItemMember('');
