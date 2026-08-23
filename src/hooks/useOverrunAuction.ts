@@ -108,6 +108,32 @@ function areQueuesEqual(left: string[], right: string[]): boolean {
   );
 }
 
+function findFirstQueueMismatchIndex(
+  expectedQueue: string[],
+  actualQueue: string[],
+): number {
+  const sharedLength = Math.min(
+    expectedQueue.length,
+    actualQueue.length,
+  );
+
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (expectedQueue[index] !== actualQueue[index]) {
+      return index;
+    }
+  }
+
+  return expectedQueue.length === actualQueue.length
+    ? -1
+    : sharedLength;
+}
+
+function formatDebugMember(memberName: string | undefined): string {
+  return memberName === undefined
+    ? '<missing>'
+    : JSON.stringify(memberName);
+}
+
 function normalizeCount(value: number): number {
   if (!Number.isFinite(value) || value < 0) {
     return 0;
@@ -578,41 +604,57 @@ export function useOverrunAuction({
             ...preview.queueBefore.slice(OVERRUN_QUEUE_SIZE),
           ];
 
-    if (
-      preview.queueSize !== OVERRUN_QUEUE_SIZE ||
-      preview.queueBefore.length < OVERRUN_QUEUE_SIZE ||
-      !areQueuesEqual(preview.queueBefore, currentQueueNames) ||
-      !areQueuesEqual(preview.queueAfter, expectedQueueAfter) ||
-      hasInvalidMemberNames(preview.queueBefore) ||
-      hasInvalidMemberNames(preview.queueAfter)
-    ) {
-      const firstMismatchIndex = expectedQueueAfter.findIndex(
-        (memberName, index) =>
-          memberName !== preview.queueAfter[index],
-      );
-
-      console.debug('[Overrun confirm validation failed]', {
-        queueSize: preview.queueSize,
-        queueBeforeLength: preview.queueBefore.length,
-        queueAfterLength: preview.queueAfter.length,
-        expectedQueueAfter,
-        queueAfter: preview.queueAfter,
-        firstMismatchIndex:
-          firstMismatchIndex >= 0
-            ? firstMismatchIndex
-            : expectedQueueAfter.length !== preview.queueAfter.length
-              ? Math.min(
-                  expectedQueueAfter.length,
-                  preview.queueAfter.length,
-                )
-              : -1,
-      });
-
-      setErrorMessage(
-        'ข้อมูลคิวรอบถัดไปไม่ถูกต้อง กรุณาสร้าง Preview ใหม่',
-      );
+    function rejectPreview(message: string): false {
+      console.debug('[Overrun confirm validation failed]', message);
+      setErrorMessage(message);
       setPreview(null);
       return false;
+    }
+
+    if (preview.queueSize !== OVERRUN_QUEUE_SIZE) {
+      return rejectPreview(
+        `DEBUG: queueSize mismatch: preview=${preview.queueSize}, expected=${OVERRUN_QUEUE_SIZE}`,
+      );
+    }
+
+    if (preview.queueBefore.length < OVERRUN_QUEUE_SIZE) {
+      return rejectPreview(
+        `DEBUG: queueBefore length=${preview.queueBefore.length}, expected at least=${OVERRUN_QUEUE_SIZE}`,
+      );
+    }
+
+    if (!areQueuesEqual(preview.queueBefore, currentQueueNames)) {
+      const mismatchIndex = findFirstQueueMismatchIndex(
+        currentQueueNames,
+        preview.queueBefore,
+      );
+
+      return rejectPreview(
+        `DEBUG: queueBefore changed: index=${mismatchIndex}, expected=${formatDebugMember(currentQueueNames[mismatchIndex])}, actual=${formatDebugMember(preview.queueBefore[mismatchIndex])}`,
+      );
+    }
+
+    if (!areQueuesEqual(preview.queueAfter, expectedQueueAfter)) {
+      const mismatchIndex = findFirstQueueMismatchIndex(
+        expectedQueueAfter,
+        preview.queueAfter,
+      );
+
+      return rejectPreview(
+        `DEBUG: queueAfter mismatch: index=${mismatchIndex}, expected=${formatDebugMember(expectedQueueAfter[mismatchIndex])}, actual=${formatDebugMember(preview.queueAfter[mismatchIndex])}`,
+      );
+    }
+
+    if (hasInvalidMemberNames(preview.queueBefore)) {
+      return rejectPreview(
+        'DEBUG: queueBefore contains blank/duplicate member',
+      );
+    }
+
+    if (hasInvalidMemberNames(preview.queueAfter)) {
+      return rejectPreview(
+        'DEBUG: queueAfter contains blank/duplicate member',
+      );
     }
 
     try {
