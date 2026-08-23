@@ -39,6 +39,7 @@ export interface OverrunAuctionRow
 export interface OverrunPreview {
   result: OverrunResult;
   noItemMember: string;
+  queueSize: number;
   queueBefore: string[];
   queueAfter: string[];
 }
@@ -61,6 +62,7 @@ export interface ConfirmOverrunResultPayload {
   eventDate: string;
   result: OverrunResult;
   noItemMember: string;
+  queueSize: number;
   queueBefore: string[];
   queueAfter: string[];
 }

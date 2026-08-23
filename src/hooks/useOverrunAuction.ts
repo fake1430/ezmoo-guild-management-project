@@ -90,6 +90,24 @@ function buildQueueItems(memberNames: string[]): OverrunQueueItem[] {
   }));
 }
 
+function hasInvalidMemberNames(memberNames: string[]): boolean {
+  const normalizedNames = memberNames.map((memberName) =>
+    memberName.trim(),
+  );
+
+  return (
+    normalizedNames.some((memberName) => !memberName) ||
+    new Set(normalizedNames).size !== normalizedNames.length
+  );
+}
+
+function areQueuesEqual(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((memberName, index) => memberName === right[index])
+  );
+}
+
 function normalizeCount(value: number): number {
   if (!Number.isFinite(value) || value < 0) {
     return 0;
@@ -532,6 +550,7 @@ export function useOverrunAuction({
       result,
       noItemMember:
         result === 'lose' ? noItemMember.trim() : '',
+      queueSize: OVERRUN_QUEUE_SIZE,
       queueBefore,
       queueAfter,
     });
@@ -548,6 +567,32 @@ export function useOverrunAuction({
       return false;
     }
 
+    const currentQueueNames = queue.map((item) =>
+      item.memberName.trim(),
+    );
+    const expectedQueueAfter =
+      preview.result === 'win'
+        ? preview.queueBefore.slice(OVERRUN_QUEUE_SIZE)
+        : [
+            preview.noItemMember.trim(),
+            ...preview.queueBefore.slice(OVERRUN_QUEUE_SIZE),
+          ];
+
+    if (
+      preview.queueSize !== OVERRUN_QUEUE_SIZE ||
+      preview.queueBefore.length < OVERRUN_QUEUE_SIZE ||
+      !areQueuesEqual(preview.queueBefore, currentQueueNames) ||
+      !areQueuesEqual(preview.queueAfter, expectedQueueAfter) ||
+      hasInvalidMemberNames(preview.queueBefore) ||
+      hasInvalidMemberNames(preview.queueAfter)
+    ) {
+      setErrorMessage(
+        'ข้อมูลคิวรอบถัดไปไม่ถูกต้อง กรุณาสร้าง Preview ใหม่',
+      );
+      setPreview(null);
+      return false;
+    }
+
     try {
       setIsConfirming(true);
       setErrorMessage('');
@@ -557,6 +602,7 @@ export function useOverrunAuction({
         eventDate,
         result: preview.result,
         noItemMember: preview.noItemMember,
+        queueSize: preview.queueSize,
         queueBefore: preview.queueBefore,
         queueAfter: preview.queueAfter,
       };
