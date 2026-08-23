@@ -613,13 +613,13 @@ export function useOverrunAuction({
 
     if (preview.queueSize !== OVERRUN_QUEUE_SIZE) {
       return rejectPreview(
-        `DEBUG: queueSize mismatch: preview=${preview.queueSize}, expected=${OVERRUN_QUEUE_SIZE}`,
+        `DEBUG-1 queueSize mismatch: preview=${preview.queueSize}, expected=${OVERRUN_QUEUE_SIZE}`,
       );
     }
 
     if (preview.queueBefore.length < OVERRUN_QUEUE_SIZE) {
       return rejectPreview(
-        `DEBUG: queueBefore length=${preview.queueBefore.length}, expected at least=${OVERRUN_QUEUE_SIZE}`,
+        `DEBUG-2 queueBefore too short: actualLength=${preview.queueBefore.length}, expectedMinimum=${OVERRUN_QUEUE_SIZE}`,
       );
     }
 
@@ -630,7 +630,7 @@ export function useOverrunAuction({
       );
 
       return rejectPreview(
-        `DEBUG: queueBefore changed: index=${mismatchIndex}, expected=${formatDebugMember(currentQueueNames[mismatchIndex])}, actual=${formatDebugMember(preview.queueBefore[mismatchIndex])}`,
+        `DEBUG-3 queueBefore changed at index ${mismatchIndex}: expected=${formatDebugMember(currentQueueNames[mismatchIndex])}, actual=${formatDebugMember(preview.queueBefore[mismatchIndex])}, expectedLength=${currentQueueNames.length}, actualLength=${preview.queueBefore.length}`,
       );
     }
 
@@ -641,19 +641,19 @@ export function useOverrunAuction({
       );
 
       return rejectPreview(
-        `DEBUG: queueAfter mismatch: index=${mismatchIndex}, expected=${formatDebugMember(expectedQueueAfter[mismatchIndex])}, actual=${formatDebugMember(preview.queueAfter[mismatchIndex])}`,
+        `DEBUG-4 queueAfter mismatch at index ${mismatchIndex}: expected=${formatDebugMember(expectedQueueAfter[mismatchIndex])}, actual=${formatDebugMember(preview.queueAfter[mismatchIndex])}, expectedLength=${expectedQueueAfter.length}, actualLength=${preview.queueAfter.length}`,
       );
     }
 
     if (hasInvalidMemberNames(preview.queueBefore)) {
       return rejectPreview(
-        'DEBUG: queueBefore contains blank/duplicate member',
+        'DEBUG-5 queueBefore duplicate/blank',
       );
     }
 
     if (hasInvalidMemberNames(preview.queueAfter)) {
       return rejectPreview(
-        'DEBUG: queueAfter contains blank/duplicate member',
+        'DEBUG-6 queueAfter duplicate/blank',
       );
     }
 
@@ -699,6 +699,8 @@ export function useOverrunAuction({
         eventDate,
         auction,
       );
+
+      console.log('OVERRUN CONFIRM PAYLOAD', payload);
 
       const message =
         await confirmOverrunResult(

@@ -552,6 +552,7 @@ export function OverrunPage({
           <p>
             จัดการสิทธิประมูลตามลำดับคิวรายคน
           </p>
+          <p>DEBUG BUILD: OVERRUN-12-DIAG-V2</p>
         </div>
 
         <div className="overrun-toolbar-actions">
