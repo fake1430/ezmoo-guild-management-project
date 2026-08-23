@@ -519,7 +519,7 @@ export function useOverrunAuction({
       return false;
     }
 
-    const queueBefore = queue.map((item) => item.memberName);
+    const queueBefore = queue.map((item) => item.memberName.trim());
     let queueAfter: string[];
 
     if (result === 'win') {
@@ -586,6 +586,28 @@ export function useOverrunAuction({
       hasInvalidMemberNames(preview.queueBefore) ||
       hasInvalidMemberNames(preview.queueAfter)
     ) {
+      const firstMismatchIndex = expectedQueueAfter.findIndex(
+        (memberName, index) =>
+          memberName !== preview.queueAfter[index],
+      );
+
+      console.debug('[Overrun confirm validation failed]', {
+        queueSize: preview.queueSize,
+        queueBeforeLength: preview.queueBefore.length,
+        queueAfterLength: preview.queueAfter.length,
+        expectedQueueAfter,
+        queueAfter: preview.queueAfter,
+        firstMismatchIndex:
+          firstMismatchIndex >= 0
+            ? firstMismatchIndex
+            : expectedQueueAfter.length !== preview.queueAfter.length
+              ? Math.min(
+                  expectedQueueAfter.length,
+                  preview.queueAfter.length,
+                )
+              : -1,
+      });
+
       setErrorMessage(
         'ข้อมูลคิวรอบถัดไปไม่ถูกต้อง กรุณาสร้าง Preview ใหม่',
       );

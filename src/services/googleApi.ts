@@ -248,6 +248,34 @@ export function saveOverrunQueue(
 export function confirmOverrunResult(
   payload: ConfirmOverrunResultPayload,
 ): Promise<string> {
+  const expectedQueueAfter =
+    payload.result === 'win'
+      ? payload.queueBefore.slice(payload.queueSize)
+      : [
+          payload.noItemMember.trim(),
+          ...payload.queueBefore.slice(payload.queueSize),
+        ];
+  const firstMismatchIndex = expectedQueueAfter.findIndex(
+    (memberName, index) => memberName !== payload.queueAfter[index],
+  );
+
+  console.debug('[Overrun confirm request]', {
+    queueSize: payload.queueSize,
+    queueBeforeLength: payload.queueBefore.length,
+    queueAfterLength: payload.queueAfter.length,
+    expectedQueueAfter,
+    queueAfter: payload.queueAfter,
+    firstMismatchIndex:
+      firstMismatchIndex >= 0
+        ? firstMismatchIndex
+        : expectedQueueAfter.length !== payload.queueAfter.length
+          ? Math.min(
+              expectedQueueAfter.length,
+              payload.queueAfter.length,
+            )
+          : -1,
+  });
+
   return postRequest({
     action: 'confirmOverrunResult',
     ...payload,
