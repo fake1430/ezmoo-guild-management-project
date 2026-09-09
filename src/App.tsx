@@ -15,6 +15,7 @@ import { AuctionPage } from './components/auction/AuctionPage';
 import { OverrunPage } from './components/overrun/OverrunPage';
 import { WarPlannerPage } from './pages/warPlanner/WarPlannerPage';
 import { MemberDashboardPage } from './pages/memberDashboard/MemberDashboardPage';
+import { StatsDashboardPage } from './pages/stats/StatsDashboardPage';
 
 
 const EMPTY_SLOTS = ['', '', '', '', ''];
@@ -25,11 +26,18 @@ type AppPage =
   | 'auction'
   | 'overrun'
   | 'warPlanner'
-  | 'memberDashboard';
+  | 'memberDashboard'
+  | 'stats';
+
+function pageFromPath(): AppPage {
+  return window.location.pathname === '/stats'
+    ? 'stats'
+    : 'partyBuilder';
+}
 
 function App() {
   const [currentPage, setCurrentPage] =
-    useState<AppPage>('partyBuilder');
+    useState<AppPage>(pageFromPath);
 
   const [mode, setMode] =
     useState<PartyMode>('guildLeague');
@@ -80,6 +88,34 @@ function App() {
       })),
     );
   }, [parties]);
+
+  useEffect(() => {
+    function handlePopState(): void {
+      setCurrentPage(pageFromPath());
+    }
+
+    window.addEventListener(
+      'popstate',
+      handlePopState,
+    );
+
+    return () => {
+      window.removeEventListener(
+        'popstate',
+        handlePopState,
+      );
+    };
+  }, []);
+
+  function navigateToPage(page: AppPage): void {
+    const path = page === 'stats' ? '/stats' : '/';
+
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+
+    setCurrentPage(page);
+  }
 
   const modeLabel =
     mode === 'guildLeague'
@@ -437,7 +473,7 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage(
+            navigateToPage(
               'partyBuilder',
             )
           }
@@ -454,7 +490,7 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage(
+            navigateToPage(
               'attendance',
             )
           }
@@ -470,7 +506,7 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage('auction')
+            navigateToPage('auction')
           }
         >
           Auction
@@ -484,7 +520,7 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage('overrun')
+            navigateToPage('overrun')
           }
         >
           Overrun Auction
@@ -498,7 +534,7 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage('warPlanner')
+            navigateToPage('warPlanner')
           }
         >
           War Planner
@@ -511,11 +547,25 @@ function App() {
               : ''
           }
           onClick={() =>
-            setCurrentPage('memberDashboard')
+            navigateToPage('memberDashboard')
           }
         >
           Members
-</button>
+        </button>
+
+        <button
+          type="button"
+          className={
+            currentPage === 'stats'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            navigateToPage('stats')
+          }
+        >
+          Stat Dashboard
+        </button>
       </nav>
 
       {isPartyPage && (
@@ -676,6 +726,14 @@ function App() {
           members={members}
           isLoading={isLoadingMembers}
           errorMessage={memberErrorMessage}
+        />
+      )}
+      {currentPage === 'stats' && (
+        <StatsDashboardPage
+          members={members}
+          isLoadingMembers={isLoadingMembers}
+          memberErrorMessage={memberErrorMessage}
+          onReloadMembers={reloadMembers}
         />
       )}
     </div>

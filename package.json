@@ -5,11 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run typecheck && vite build && npm run bot:build",
+    "typecheck": "tsc -b",
+    "bot:build": "tsc -p bot/tsconfig.json",
+    "bot:start": "node --env-file=.env bot/dist/bot/index.js",
+    "bot:register": "node --env-file=.env bot/dist/bot/registerCommands.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
+    "discord.js": "^14.22.1",
+    "dotenv": "^17.4.2",
     "html-to-image": "^1.11.13",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

@@ -17,6 +17,10 @@ import type {
   OverrunQueueItem,
 } from '../types/overrun';
 import type { WarPlannerData } from '../types/warPlanner';
+import type {
+  CharacterStats,
+  StatSubmission,
+} from '../types/characterStats';
 
 interface ApiSuccessResponse<T> {
   success: true;
@@ -297,5 +301,38 @@ export function saveWarPlanner(
   return postRequest({
     action: 'saveWarPlanner',
     plan,
+  });
+}
+
+export function getMemberStatSubmissions(
+  memberId: string,
+): Promise<StatSubmission[]> {
+  return request<StatSubmission[]>(
+    'getMemberStatSubmissions',
+    { memberId },
+  );
+}
+
+export function getLatestMemberStats(
+  memberId: string,
+): Promise<StatSubmission | null> {
+  return request<StatSubmission | null>(
+    'getLatestMemberStats',
+    { memberId },
+  );
+}
+
+export function saveStatSubmission(
+  submission: {
+    memberId: string;
+    ign: string;
+    submittedByDiscordId: string;
+    submittedByDiscordName?: string;
+    stats: CharacterStats;
+  },
+): Promise<string> {
+  return postRequest({
+    action: 'saveStatSubmission',
+    ...submission,
   });
 }

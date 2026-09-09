@@ -1,0 +1,280 @@
+import 'dotenv/config';
+
+import {
+  ActionRowBuilder,
+  Client,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
+import { runStatCommand } from './commands/stat.js';
+import {
+  buildStatPreview,
+  formatModalDefaultValue,
+  getStatDisplayItem,
+  parseEditedStatValue,
+} from './commands/statPreview.js';
+import { getMembers, saveStatSubmission } from './services/guildApi.js';
+import type { PendingStatSubmission } from './types/session.js';
+import type { Member } from '../src/types/member.js';
+
+console.log(
+  'BOT GEMINI KEY:',
+  process.env.GEMINI_API_KEY ? 'FOUND' : 'MISSING',
+);
+
+
+const token = process.env.DISCORD_TOKEN;
+if (!token) {
+  throw new Error('Missing DISCORD_TOKEN');
+}
+
+const sessions = new Map<string, PendingStatSubmission>();
+const SESSION_TTL_MS = 15 * 60 * 1000;
+const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000;
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+let memberCache: Member[] = [];
+let memberCacheUpdatedAt = 0;
+let memberRefreshPromise: Promise<Member[]> | null = null;
+
+function refreshMemberCache(): Promise<Member[]> {
+  if (memberRefreshPromise) return memberRefreshPromise;
+  memberRefreshPromise = getMembers()
+    .then((members) => {
+      memberCache = members;
+      memberCacheUpdatedAt = Date.now();
+      return members;
+    })
+    .finally(() => {
+      memberRefreshPromise = null;
+    });
+  return memberRefreshPromise;
+}
+
+function getMemberCacheSnapshot(): Member[] {
+  if (Date.now() - memberCacheUpdatedAt >= MEMBER_CACHE_TTL_MS) {
+    void refreshMemberCache().catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[Member cache] Refresh failed: ${message}`);
+    });
+  }
+  return memberCache;
+}
+
+function discordErrorCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'number' ? code : undefined;
+}
+
+client.once(Events.ClientReady, (readyClient) => {
+  console.log(`Discord bot ready as ${readyClient.user.tag}`);
+  void refreshMemberCache()
+    .then((members) => console.log(`[Member cache] Preloaded ${members.length} members`))
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[Member cache] Preload failed: ${message}`);
+    });
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.isAutocomplete() && interaction.commandName === 'stat') {
+      const query = interaction.options.getFocused().toLocaleLowerCase();
+      const members = getMemberCacheSnapshot();
+      await interaction.respond(
+        members
+          .filter((member) => member.ign.toLocaleLowerCase().includes(query))
+          .slice(0, 25)
+          .map((member) => ({ name: member.ign, value: member.memberId })),
+      );
+      return;
+    }
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'stat') {
+      await runStatCommand(interaction, sessions);
+      return;
+    }
+
+    if (
+      interaction.isStringSelectMenu() &&
+      /^stat:edit[12]:/.test(interaction.customId)
+    ) {
+      const [, , sessionId] = interaction.customId.split(':');
+      const pending = sessions.get(sessionId);
+      if (!pending || Date.now() - pending.createdAt > SESSION_TTL_MS) {
+        sessions.delete(sessionId);
+        await interaction.update({
+          content: 'รายการนี้หมดอายุแล้ว กรุณาใช้ /stat ใหม่',
+          components: [],
+        });
+        return;
+      }
+      if (interaction.user.id !== pending.submittedByDiscordId) {
+        await interaction.reply({
+          content: 'รายการนี้เป็นของผู้ส่ง Stat คนอื่น',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const item = getStatDisplayItem(interaction.values[0]);
+      if (!item) {
+        await interaction.reply({
+          content: 'ไม่พบ Stat ที่เลือก',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      const input = new TextInputBuilder()
+        .setCustomId('value')
+        .setLabel('ค่าใหม่')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(50);
+      const currentValue = formatModalDefaultValue(pending, item.key);
+      if (currentValue !== undefined) input.setValue(currentValue);
+
+      await interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`stat:modal:${sessionId}:${item.key}`)
+          .setTitle(`แก้ไข ${item.label}`)
+          .addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+          ),
+      );
+      return;
+    }
+
+    if (
+      interaction.isModalSubmit() &&
+      interaction.customId.startsWith('stat:modal:')
+    ) {
+      const [, , sessionId, statKey] = interaction.customId.split(':');
+      const pending = sessions.get(sessionId);
+      if (!pending || Date.now() - pending.createdAt > SESSION_TTL_MS) {
+        sessions.delete(sessionId);
+        await interaction.reply({
+          content: 'รายการนี้หมดอายุแล้ว กรุณาใช้ /stat ใหม่',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      if (interaction.user.id !== pending.submittedByDiscordId) {
+        await interaction.reply({
+          content: 'รายการนี้เป็นของผู้ส่ง Stat คนอื่น',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      const item = getStatDisplayItem(statKey);
+      if (!item) {
+        await interaction.reply({
+          content: 'ไม่พบ Stat ที่ต้องการแก้ไข',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      let value: number;
+      try {
+        value = parseEditedStatValue(
+          interaction.fields.getTextInputValue('value'),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await interaction.reply({ content: message, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      pending.stats[item.key] = value;
+      pending.editedFields.add(item.key);
+      pending.createdAt = Date.now();
+
+      if (interaction.isFromMessage()) {
+        await interaction.update(buildStatPreview(sessionId, pending));
+      } else {
+        await interaction.reply({
+          content: 'แก้ไขค่าแล้ว กรุณากลับไปตรวจ Preview',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      return;
+    }
+
+    if (!interaction.isButton() || !interaction.customId.startsWith('stat:')) {
+      return;
+    }
+
+    const [, action, sessionId] = interaction.customId.split(':');
+    const pending = sessions.get(sessionId);
+    if (!pending || Date.now() - pending.createdAt > SESSION_TTL_MS) {
+      sessions.delete(sessionId);
+      await interaction.update({ content: 'รายการนี้หมดอายุแล้ว กรุณาใช้ /stat ใหม่', components: [] });
+      return;
+    }
+    if (interaction.user.id !== pending.submittedByDiscordId) {
+      await interaction.reply({
+        content: 'รายการนี้เป็นของผู้ส่ง Stat คนอื่น',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (action === 'cancel') {
+      sessions.delete(sessionId);
+      await interaction.update({ content: `ยกเลิกการส่ง stat ของ **${pending.ign}** แล้ว`, components: [] });
+      return;
+    }
+    if (action === 'confirm') {
+      await interaction.deferUpdate();
+      await saveStatSubmission({
+        memberId: pending.memberId,
+        ign: pending.ign,
+        submittedByDiscordId: pending.submittedByDiscordId,
+        submittedByDiscordName: pending.submittedByDiscordName,
+        stats: pending.stats,
+      });
+      sessions.delete(sessionId);
+      await interaction.editReply({ content: `บันทึก stat ใหม่ของ **${pending.ign}** เรียบร้อยแล้ว`, components: [] });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+    if (interaction.isAutocomplete()) {
+      if (discordErrorCode(error) === 10062) {
+        console.warn('[Autocomplete] Interaction expired before response (10062)');
+        return;
+      }
+      console.warn(`[Autocomplete] Failed: ${message}`);
+      await interaction.respond([]).catch((respondError: unknown) => {
+        if (discordErrorCode(respondError) !== 10062) {
+          const respondMessage = respondError instanceof Error
+            ? respondError.message
+            : String(respondError);
+          console.warn(`[Autocomplete] Empty response failed: ${respondMessage}`);
+        }
+      });
+    } else if (interaction.isRepliable()) {
+      console.error(error);
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: `เกิดข้อผิดพลาด: ${message}`, components: [] }).catch(() => undefined);
+      } else {
+        await interaction.reply({
+          content: `เกิดข้อผิดพลาด: ${message}`,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => undefined);
+      }
+    }
+  }
+});
+
+setInterval(() => {
+  const cutoff = Date.now() - SESSION_TTL_MS;
+  for (const [id, session] of sessions) {
+    if (session.createdAt < cutoff) sessions.delete(id);
+  }
+}, 60_000).unref();
+
+await client.login(token);
