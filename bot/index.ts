@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import {
   ActionRowBuilder,
   Client,
@@ -18,19 +16,53 @@ import {
   parseEditedStatValue,
 } from './commands/statPreview.js';
 import { getMembers, saveStatSubmission } from './services/guildApi.js';
+import { DEFAULT_GEMINI_MODEL } from './services/vision.js';
 import type { PendingStatSubmission } from './types/session.js';
 import type { Member } from '../src/types/member.js';
 
-console.log(
-  'BOT GEMINI KEY:',
-  process.env.GEMINI_API_KEY ? 'FOUND' : 'MISSING',
+const REQUIRED_ENVIRONMENT_VARIABLES = [
+  'DISCORD_TOKEN',
+  'GEMINI_API_KEY',
+  'GOOGLE_API_URL',
+] as const;
+const missingEnvironmentVariables = REQUIRED_ENVIRONMENT_VARIABLES.filter(
+  (name) => !process.env[name]?.trim(),
 );
 
-
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  throw new Error('Missing DISCORD_TOKEN');
+console.log('Discord bot starting...');
+if (missingEnvironmentVariables.length > 0) {
+  missingEnvironmentVariables.forEach((name) => {
+    console.error(`Missing required environment variable: ${name}`);
+  });
+  process.exit(1);
 }
+
+console.log('Google API URL: configured');
+console.log('Gemini key: configured');
+console.log(
+  `Gemini model: ${process.env.GEMINI_VISION_MODEL || DEFAULT_GEMINI_MODEL}`,
+);
+
+const token = process.env.DISCORD_TOKEN as string;
+
+function safeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error && typeof error === 'object' && 'code' in error) {
+    return `code=${String(error.code)}`;
+  }
+  const message = String(error);
+  return message.trim() ? message : 'Unknown error';
+}
+
+process.on('unhandledRejection', (error) => {
+  console.error(`[Fatal] Unhandled rejection: ${safeErrorMessage(error)}`);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(`[Fatal] Uncaught exception: ${safeErrorMessage(error)}`);
+  process.exit(1);
+});
 
 const sessions = new Map<string, PendingStatSubmission>();
 const SESSION_TTL_MS = 15 * 60 * 1000;

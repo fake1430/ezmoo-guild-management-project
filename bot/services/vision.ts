@@ -11,7 +11,7 @@ import {
   type RawStatExtraction,
 } from './statMapping.js';
 
-const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGES = 5;
 const GEMINI_TIMEOUT_MS = 30_000;
