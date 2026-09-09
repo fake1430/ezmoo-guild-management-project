@@ -36,6 +36,12 @@ function handleStatGetAction(action, parameters) {
       data: getLatestMemberStats_(requiredString_(parameters.memberId, 'memberId')),
     };
   }
+  if (action === 'getLatestGuildStats') {
+    return {
+      handled: true,
+      data: getLatestGuildStats_(),
+    };
+  }
   return { handled: false };
 }
 
@@ -102,6 +108,42 @@ function getMemberStatSubmissions_(memberId) {
 function getLatestMemberStats_(memberId) {
   const history = getMemberStatSubmissions_(memberId);
   return history.length ? history[0] : null;
+}
+
+function getLatestGuildStats_() {
+  const sheet = getStatSheet_();
+  if (sheet.getLastRow() < 2) return [];
+
+  const rows = sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, STAT_HEADERS.length)
+    .getValues();
+  const latestByMemberId = {};
+
+  rows.forEach(function (row, rowIndex) {
+    const submission = statRowToObject_(row);
+    const memberId = submission.memberId;
+    const parsedSubmittedTime = new Date(submission.submittedAt).getTime();
+    const submittedTime = isNaN(parsedSubmittedTime)
+      ? Number.NEGATIVE_INFINITY
+      : parsedSubmittedTime;
+    const current = latestByMemberId[memberId];
+
+    if (
+      !current
+      || submittedTime > current.submittedTime
+      || (submittedTime === current.submittedTime && rowIndex > current.rowIndex)
+    ) {
+      latestByMemberId[memberId] = {
+        submission: submission,
+        submittedTime: submittedTime,
+        rowIndex: rowIndex,
+      };
+    }
+  });
+
+  return Object.keys(latestByMemberId).map(function (memberId) {
+    return latestByMemberId[memberId].submission;
+  });
 }
 
 function statRowToObject_(row) {

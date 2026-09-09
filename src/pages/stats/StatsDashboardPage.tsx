@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getLatestMemberStats } from '../../services/googleApi';
+import { getLatestGuildStats } from '../../services/googleApi';
 import type { CharacterStatKey, StatSubmission } from '../../types/characterStats';
 import type { Member } from '../../types/member';
 import { StatDetailContent } from './StatDetailContent';
@@ -15,8 +15,6 @@ interface StatsDashboardPageProps {
 type SortMode = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
 interface CardSummaryField { key: CharacterStatKey; label: string }
 
-const REQUEST_CONCURRENCY = 4;
-const MEMBER_REQUEST_TIMEOUT_MS = 15_000;
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 const CARD_SUMMARY_FIELDS: readonly CardSummaryField[] = [
   { key: 'hp', label: 'HP' },
@@ -67,41 +65,16 @@ export function StatsDashboardPage({
   const [statErrorMessage, setStatErrorMessage] = useState('');
   const [modalMember, setModalMember] = useState<Member | null>(null);
   const [dashboardNow] = useState(() => Date.now());
-  const cacheRef = useRef(new Map<string, StatSubmission | null>());
-  const pendingRef = useRef(new Map<string, Promise<StatSubmission | null>>());
   const loadGenerationRef = useRef(0);
 
   const classOptions = useMemo(() => Array.from(new Set(
     members.map(memberClass).filter((value) => value !== 'ไม่ระบุอาชีพ'),
   )).sort((first, second) => first.localeCompare(second, 'th')), [members]);
 
-  async function getCachedLatest(memberId: string): Promise<StatSubmission | null> {
-    if (cacheRef.current.has(memberId)) return cacheRef.current.get(memberId) ?? null;
-    const existingRequest = pendingRef.current.get(memberId);
-    if (existingRequest) return existingRequest;
-
-    const controller = new AbortController();
-    const timeout = window.setTimeout(
-      () => controller.abort(),
-      MEMBER_REQUEST_TIMEOUT_MS,
-    );
-    const request = getLatestMemberStats(memberId, controller.signal)
-      .then((submission) => {
-        cacheRef.current.set(memberId, submission);
-        return submission;
-      })
-      .finally(() => {
-        window.clearTimeout(timeout);
-        pendingRef.current.delete(memberId);
-      });
-    pendingRef.current.set(memberId, request);
-    return request;
-  }
-
   async function loadGuildStats(): Promise<void> {
     const generation = loadGenerationRef.current + 1;
     loadGenerationRef.current = generation;
-    console.info(`[Stats Dashboard] members loaded: ${members.length}`);
+    console.info(`[Stats Dashboard] members loaded=${members.length}`);
 
     if (members.length === 0) {
       setLatestByMember(new Map());
@@ -111,53 +84,35 @@ export function StatsDashboardPage({
 
     setIsLoadingStats(true);
     setStatErrorMessage('');
-    let nextIndex = 0;
-    let failureCount = 0;
-    let successCount = 0;
-    let noStatCount = 0;
-    console.info(
-      `[Stats Dashboard] load latest stats START members=${members.length}`,
-    );
-
-    async function worker(): Promise<void> {
-      while (nextIndex < members.length) {
-        const member = members[nextIndex];
-        nextIndex += 1;
-        console.info(
-          `[Stats Dashboard] worker request START ${member.memberId}`,
-        );
-        try {
-          const submission = await getCachedLatest(member.memberId);
-          if (submission) successCount += 1;
-          else noStatCount += 1;
-          console.info(
-            `[Stats Dashboard] worker request DONE ${member.memberId} hasStat=${Boolean(submission)}`,
-          );
-        } catch (error) {
-          failureCount += 1;
-          console.warn(
-            `[Stats Dashboard] worker request FAILED ${member.memberId}`,
-            error instanceof Error ? error.message : 'Unknown error',
-          );
-        }
-      }
-    }
 
     try {
-      await Promise.all(Array.from(
-        { length: Math.min(REQUEST_CONCURRENCY, members.length) },
-        () => worker(),
-      ));
-    } finally {
+      const latestStats = await getLatestGuildStats();
       console.info(
-        `[Stats Dashboard] load latest stats DONE success=${successCount} noStat=${noStatCount} failed=${failureCount}`,
+        `[Stats Dashboard] latest guild stats loaded=${latestStats.length}`,
       );
-      if (loadGenerationRef.current === generation) {
-        setLatestByMember(new Map(cacheRef.current));
-        setIsLoadingStats(false);
-        if (failureCount > 0) {
-          setStatErrorMessage(`โหลดข้อมูล Stat ไม่สำเร็จ ${failureCount} คน`);
+      const memberIds = new Set(members.map((member) => member.memberId));
+      const nextLatestByMember = new Map<string, StatSubmission>();
+      latestStats.forEach((submission) => {
+        if (memberIds.has(submission.memberId)) {
+          nextLatestByMember.set(submission.memberId, submission);
         }
+      });
+
+      if (loadGenerationRef.current === generation) {
+        setLatestByMember(nextLatestByMember);
+        console.info(
+          `[Stats Dashboard] merge done withStats=${nextLatestByMember.size} withoutStats=${members.length - nextLatestByMember.size}`,
+        );
+      }
+    } catch (error) {
+      if (loadGenerationRef.current === generation) {
+        setStatErrorMessage(
+          error instanceof Error ? error.message : 'โหลดข้อมูล Stat ไม่สำเร็จ',
+        );
+      }
+    } finally {
+      if (loadGenerationRef.current === generation) {
+        setIsLoadingStats(false);
       }
     }
   }
@@ -169,7 +124,6 @@ export function StatsDashboardPage({
     return () => {
       loadGenerationRef.current += 1;
     };
-    // The page-session cache keeps successful member requests from repeating.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [members, isLoadingMembers, memberErrorMessage]);
 

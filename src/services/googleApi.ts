@@ -48,7 +48,6 @@ if (!API_URL) {
 async function request<T>(
   action: string,
   parameters: Record<string, string> = {},
-  signal?: AbortSignal,
 ): Promise<T> {
   const url = new URL(API_URL);
 
@@ -60,9 +59,9 @@ async function request<T>(
     },
   );
 
-  const response = await fetch(url.toString(), {
-    signal,
-  });
+  const response = await fetch(
+    url.toString(),
+  );
 
   if (!response.ok) {
     throw new Error(
@@ -316,13 +315,15 @@ export function getMemberStatSubmissions(
 
 export function getLatestMemberStats(
   memberId: string,
-  signal?: AbortSignal,
 ): Promise<StatSubmission | null> {
   return request<StatSubmission | null>(
     'getLatestMemberStats',
     { memberId },
-    signal,
   );
+}
+
+export function getLatestGuildStats(): Promise<StatSubmission[]> {
+  return request<StatSubmission[]>('getLatestGuildStats');
 }
 
 export function saveStatSubmission(
