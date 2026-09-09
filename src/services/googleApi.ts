@@ -19,6 +19,7 @@ import type {
 import type { WarPlannerData } from '../types/warPlanner';
 import type {
   CharacterStats,
+  ClassFocusStatConfig,
   StatSubmission,
 } from '../types/characterStats';
 
@@ -324,6 +325,21 @@ export function getLatestMemberStats(
 
 export function getLatestGuildStats(): Promise<StatSubmission[]> {
   return request<StatSubmission[]>('getLatestGuildStats');
+}
+
+export function getStatFocusConfig(): Promise<ClassFocusStatConfig[]> {
+  return request<ClassFocusStatConfig[]>('getStatFocusConfig');
+}
+
+export function saveStatFocusConfig(
+  config: ClassFocusStatConfig,
+): Promise<string> {
+  return postRequest({
+    action: 'saveStatFocusConfig',
+    className: config.className,
+    statKeys: config.statKeys,
+    criteria: config.criteria ?? [],
+  });
 }
 
 export function saveStatSubmission(

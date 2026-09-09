@@ -4,6 +4,7 @@
  * doGet/doPost instead of defining a second router here.
  */
 const STAT_SUBMISSION_SHEET = 'StatSubmissions';
+const STAT_FOCUS_CONFIG_SHEET = 'StatFocusConfig';
 const STAT_HEADERS = [
   'id',
   'memberId',
@@ -22,6 +23,10 @@ const CHARACTER_STAT_KEYS = [
   'dmgVsDemiHuman', 'dmgReductionVsDemiHuman', 'dmgVsMedium',
   'dmgReductionVsMedium',
 ];
+const STAT_FOCUS_CONFIG_HEADERS = [
+  'className', 'statKeysJson', 'criteriaJson', 'updatedAt',
+];
+const MAX_FOCUS_STATS = 10;
 
 function handleStatGetAction(action, parameters) {
   if (action === 'getMemberStatSubmissions') {
@@ -42,17 +47,33 @@ function handleStatGetAction(action, parameters) {
       data: getLatestGuildStats_(),
     };
   }
+  if (action === 'getStatFocusConfig') {
+    return {
+      handled: true,
+      data: getStatFocusConfig_(),
+    };
+  }
   return { handled: false };
 }
 
 function handleStatPostAction(action, body) {
-  if (action !== 'saveStatSubmission') return { handled: false };
-  const submission = saveStatSubmission_(body);
-  return {
-    handled: true,
-    data: submission,
-    message: 'Stat submission saved',
-  };
+  if (action === 'saveStatSubmission') {
+    const submission = saveStatSubmission_(body);
+    return {
+      handled: true,
+      data: submission,
+      message: 'Stat submission saved',
+    };
+  }
+  if (action === 'saveStatFocusConfig') {
+    const config = saveStatFocusConfig_(body);
+    return {
+      handled: true,
+      data: config,
+      message: 'Stat focus config saved',
+    };
+  }
+  return { handled: false };
 }
 
 function saveStatSubmission_(body) {
@@ -156,6 +177,128 @@ function statRowToObject_(row) {
     submittedAt: row[5] instanceof Date ? row[5].toISOString() : String(row[5]),
     stats: validateStats_(JSON.parse(String(row[6]) || '{}')),
   };
+}
+
+function getStatFocusConfig_() {
+  const sheet = getStatFocusConfigSheet_();
+  if (sheet.getLastRow() < 2) return [];
+
+  return sheet
+    .getRange(2, 1, sheet.getLastRow() - 1, STAT_FOCUS_CONFIG_HEADERS.length)
+    .getValues()
+    .filter(function (row) { return String(row[0]).trim(); })
+    .map(function (row) {
+      const statKeys = validateFocusStatKeys_(JSON.parse(String(row[1]) || '[]'));
+      return {
+        className: String(row[0]).trim(),
+        statKeys: statKeys,
+        criteria: validateStatCriteria_(
+          JSON.parse(String(row[2]) || '[]'),
+          statKeys,
+        ),
+      };
+    });
+}
+
+function saveStatFocusConfig_(body) {
+  const className = requiredString_(body.className, 'className');
+  const statKeys = validateFocusStatKeys_(body.statKeys);
+  const criteria = validateStatCriteria_(body.criteria || [], statKeys);
+  const updatedAt = new Date().toISOString();
+  const sheet = getStatFocusConfigSheet_();
+  const lock = LockService.getScriptLock();
+
+  lock.waitLock(30000);
+  try {
+    const lastRow = sheet.getLastRow();
+    let targetRow = -1;
+    if (lastRow >= 2) {
+      const classNames = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let index = 0; index < classNames.length; index += 1) {
+        if (String(classNames[index][0]).trim() === className) {
+          targetRow = index + 2;
+          break;
+        }
+      }
+    }
+
+    const values = [[
+      className,
+      JSON.stringify(statKeys),
+      JSON.stringify(criteria),
+      updatedAt,
+    ]];
+    if (targetRow === -1) sheet.appendRow(values[0]);
+    else sheet.getRange(targetRow, 1, 1, values[0].length).setValues(values);
+  } finally {
+    lock.releaseLock();
+  }
+
+  return { className: className, statKeys: statKeys, criteria: criteria };
+}
+
+function validateFocusStatKeys_(input) {
+  if (!Array.isArray(input)) throw new Error('statKeys must be an array');
+  if (input.length < 1 || input.length > MAX_FOCUS_STATS) {
+    throw new Error('statKeys must contain between 1 and ' + MAX_FOCUS_STATS + ' items');
+  }
+
+  const seen = {};
+  return input.map(function (key) {
+    if (typeof key !== 'string' || CHARACTER_STAT_KEYS.indexOf(key) < 0) {
+      throw new Error('Unknown focus stat key: ' + key);
+    }
+    if (seen[key]) throw new Error('Duplicate focus stat key: ' + key);
+    seen[key] = true;
+    return key;
+  });
+}
+
+function validateStatCriteria_(input, statKeys) {
+  if (!Array.isArray(input)) throw new Error('criteria must be an array');
+
+  const seen = {};
+  return input.map(function (criterion) {
+    if (!criterion || typeof criterion !== 'object' || Array.isArray(criterion)) {
+      throw new Error('Each criterion must be an object');
+    }
+    const statKey = criterion.statKey;
+    if (typeof statKey !== 'string' || CHARACTER_STAT_KEYS.indexOf(statKey) < 0) {
+      throw new Error('Unknown criterion stat key: ' + statKey);
+    }
+    if (statKeys.indexOf(statKey) < 0) {
+      throw new Error('Criterion stat key must be included in statKeys: ' + statKey);
+    }
+    if (seen[statKey]) throw new Error('Duplicate criterion stat key: ' + statKey);
+    if (criterion.operator !== 'gte' && criterion.operator !== 'lte') {
+      throw new Error('Criterion operator must be gte or lte: ' + statKey);
+    }
+    if (typeof criterion.target !== 'number' || !isFinite(criterion.target)) {
+      throw new Error('Criterion target must be a finite number: ' + statKey);
+    }
+
+    seen[statKey] = true;
+    return {
+      statKey: statKey,
+      operator: criterion.operator,
+      target: criterion.target,
+    };
+  });
+}
+
+function getStatFocusConfigSheet_() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(STAT_FOCUS_CONFIG_SHEET);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(STAT_FOCUS_CONFIG_SHEET);
+    sheet.getRange(1, 1, 1, STAT_FOCUS_CONFIG_HEADERS.length)
+      .setValues([STAT_FOCUS_CONFIG_HEADERS]);
+    sheet.setFrozenRows(1);
+  } else if (String(sheet.getRange(1, 3).getValue()) === 'updatedAt') {
+    sheet.insertColumnAfter(2);
+    sheet.getRange(1, 3).setValue('criteriaJson');
+  }
+  return sheet;
 }
 
 function getStatSheet_() {

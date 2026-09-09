@@ -46,6 +46,18 @@ export interface StatSubmission {
   stats: CharacterStats;
 }
 
+export interface StatCriterion {
+  statKey: CharacterStatKey;
+  operator: 'gte' | 'lte';
+  target: number;
+}
+
+export interface ClassFocusStatConfig {
+  className: string;
+  statKeys: CharacterStatKey[];
+  criteria?: StatCriterion[];
+}
+
 export const CHARACTER_STAT_LABELS: Record<
   CharacterStatKey,
   string

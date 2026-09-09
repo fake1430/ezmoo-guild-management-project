@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getLatestGuildStats } from '../../services/googleApi';
-import type { CharacterStatKey, StatSubmission } from '../../types/characterStats';
+import {
+  getLatestGuildStats,
+  getStatFocusConfig,
+  saveStatFocusConfig,
+} from '../../services/googleApi';
+import type {
+  CharacterStatKey,
+  ClassFocusStatConfig,
+  StatCriterion,
+  StatSubmission,
+} from '../../types/characterStats';
 import type { Member } from '../../types/member';
 import { StatDetailContent } from './StatDetailContent';
-import { formatStatValue } from './statDisplay';
+import {
+  formatStatValue,
+  getStatLabel,
+  STAT_OPTIONS,
+} from './statDisplay';
 
 interface StatsDashboardPageProps {
   members: Member[];
@@ -14,12 +27,16 @@ interface StatsDashboardPageProps {
 
 type SortMode = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
 interface CardSummaryField { key: CharacterStatKey; label: string }
+interface DraftCriterion {
+  operator: StatCriterion['operator'];
+  targetText: string;
+}
+type DraftCriteria = Partial<Record<CharacterStatKey, DraftCriterion>>;
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
-const CARD_SUMMARY_FIELDS: readonly CardSummaryField[] = [
-  { key: 'hp', label: 'HP' },
-  { key: 'pvpDmgBonus', label: 'PvP DMG Bonus' },
-  { key: 'pvpDmgReduction', label: 'PvP DMG Red' },
+const MAX_FOCUS_STATS = 10;
+const CARD_SUMMARY_KEYS: readonly CharacterStatKey[] = [
+  'hp', 'pvpDmgBonus', 'pvpDmgReduction',
 ];
 
 function memberClass(member: Member): string {
@@ -45,9 +62,26 @@ function latestTime(submission: StatSubmission | null): number {
 }
 
 function attackSummary(submission: StatSubmission): CardSummaryField {
-  return (submission.stats.matk ?? 0) > (submission.stats.patk ?? 0)
-    ? { key: 'matk', label: 'MATK' }
-    : { key: 'patk', label: 'PATK' };
+  const key = (submission.stats.matk ?? 0) > (submission.stats.patk ?? 0)
+    ? 'matk'
+    : 'patk';
+  return { key, label: getStatLabel(key) };
+}
+
+function criteriaDraft(config: ClassFocusStatConfig | undefined): DraftCriteria {
+  return Object.fromEntries(
+    (config?.criteria ?? []).map((criterion) => [
+      criterion.statKey,
+      { operator: criterion.operator, targetText: String(criterion.target) },
+    ]),
+  );
+}
+
+function parseCriterionTarget(input: string): number | null {
+  const normalized = input.trim().replace(/,/g, '').replace(/%$/, '').trim();
+  if (!normalized) return null;
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
 }
 
 export function StatsDashboardPage({
@@ -61,9 +95,16 @@ export function StatsDashboardPage({
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
   const [onlyWithStats, setOnlyWithStats] = useState(true);
   const [latestByMember, setLatestByMember] = useState<Map<string, StatSubmission | null>>(new Map());
+  const [focusConfigByClass, setFocusConfigByClass] = useState<Map<string, ClassFocusStatConfig>>(new Map());
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [statErrorMessage, setStatErrorMessage] = useState('');
   const [modalMember, setModalMember] = useState<Member | null>(null);
+  const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
+  const [focusClassName, setFocusClassName] = useState('');
+  const [draftFocusKeys, setDraftFocusKeys] = useState<CharacterStatKey[]>([]);
+  const [draftCriteria, setDraftCriteria] = useState<DraftCriteria>({});
+  const [focusConfigError, setFocusConfigError] = useState('');
+  const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [dashboardNow] = useState(() => Date.now());
   const loadGenerationRef = useRef(0);
 
@@ -86,7 +127,10 @@ export function StatsDashboardPage({
     setStatErrorMessage('');
 
     try {
-      const latestStats = await getLatestGuildStats();
+      const [latestStats, focusConfigs] = await Promise.all([
+        getLatestGuildStats(),
+        getStatFocusConfig(),
+      ]);
       console.info(
         `[Stats Dashboard] latest guild stats loaded=${latestStats.length}`,
       );
@@ -97,9 +141,13 @@ export function StatsDashboardPage({
           nextLatestByMember.set(submission.memberId, submission);
         }
       });
+      const nextFocusConfig = new Map<string, ClassFocusStatConfig>(
+        focusConfigs.map((config) => [config.className, config]),
+      );
 
       if (loadGenerationRef.current === generation) {
         setLatestByMember(nextLatestByMember);
+        setFocusConfigByClass(nextFocusConfig);
         console.info(
           `[Stats Dashboard] merge done withStats=${nextLatestByMember.size} withoutStats=${members.length - nextLatestByMember.size}`,
         );
@@ -128,19 +176,141 @@ export function StatsDashboardPage({
   }, [members, isLoadingMembers, memberErrorMessage]);
 
   useEffect(() => {
-    if (!modalMember) return undefined;
+    if (!modalMember && !isFocusModalOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') setModalMember(null);
+      if (event.key === 'Escape') {
+        setModalMember(null);
+        if (!isSavingFocus) setIsFocusModalOpen(false);
+      }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [modalMember]);
+  }, [isFocusModalOpen, isSavingFocus, modalMember]);
+
+  function openFocusConfig(): void {
+    const initialClass = selectedClass !== 'all'
+      ? selectedClass
+      : classOptions[0] ?? '';
+    setFocusClassName(initialClass);
+    const config = focusConfigByClass.get(initialClass);
+    setDraftFocusKeys([...(config?.statKeys ?? [])]);
+    setDraftCriteria(criteriaDraft(config));
+    setFocusConfigError('');
+    setIsFocusModalOpen(true);
+  }
+
+  function closeFocusConfig(): void {
+    if (isSavingFocus) return;
+    setIsFocusModalOpen(false);
+    setFocusConfigError('');
+  }
+
+  function chooseFocusClass(className: string): void {
+    setFocusClassName(className);
+    const config = focusConfigByClass.get(className);
+    setDraftFocusKeys([...(config?.statKeys ?? [])]);
+    setDraftCriteria(criteriaDraft(config));
+    setFocusConfigError('');
+  }
+
+  function addFocusKey(key: CharacterStatKey): void {
+    if (draftFocusKeys.includes(key)) return;
+    if (draftFocusKeys.length >= MAX_FOCUS_STATS) {
+      setFocusConfigError(`เลือก Focus Stats ได้สูงสุด ${MAX_FOCUS_STATS} ค่า`);
+      return;
+    }
+    setDraftFocusKeys((current) => [...current, key]);
+    setFocusConfigError('');
+  }
+
+  function moveFocusKey(index: number, direction: -1 | 1): void {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= draftFocusKeys.length) return;
+    setDraftFocusKeys((current) => {
+      const next = [...current];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  }
+
+  function removeFocusKey(key: CharacterStatKey): void {
+    setDraftFocusKeys((current) => current.filter((item) => item !== key));
+    setDraftCriteria((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function setCriterionOperator(
+    key: CharacterStatKey,
+    operator: 'none' | StatCriterion['operator'],
+  ): void {
+    setDraftCriteria((current) => {
+      if (operator === 'none') {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      }
+      return {
+        ...current,
+        [key]: {
+          operator,
+          targetText: current[key]?.targetText ?? '',
+        },
+      };
+    });
+    setFocusConfigError('');
+  }
+
+  async function handleSaveFocusConfig(): Promise<void> {
+    if (!focusClassName || draftFocusKeys.length < 1) {
+      setFocusConfigError('กรุณาเลือก Focus Stat อย่างน้อย 1 ค่า');
+      return;
+    }
+
+    setIsSavingFocus(true);
+    setFocusConfigError('');
+    const criteria: StatCriterion[] = [];
+    for (const statKey of draftFocusKeys) {
+      const draft = draftCriteria[statKey];
+      if (!draft) continue;
+      const target = parseCriterionTarget(draft.targetText);
+      if (target === null) {
+        setFocusConfigError(`Target ของ ${getStatLabel(statKey)} ต้องเป็นตัวเลข`);
+        setIsSavingFocus(false);
+        return;
+      }
+      criteria.push({ statKey, operator: draft.operator, target });
+    }
+
+    const config: ClassFocusStatConfig = {
+      className: focusClassName,
+      statKeys: [...draftFocusKeys],
+      criteria,
+    };
+    try {
+      await saveStatFocusConfig(config);
+      setFocusConfigByClass((current) => {
+        const next = new Map(current);
+        next.set(config.className, config);
+        return next;
+      });
+      setIsFocusModalOpen(false);
+    } catch (error) {
+      setFocusConfigError(
+        error instanceof Error ? error.message : 'บันทึก Focus Stats ไม่สำเร็จ',
+      );
+    } finally {
+      setIsSavingFocus(false);
+    }
+  }
 
   const filteredMembers = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
@@ -177,6 +347,7 @@ export function StatsDashboardPage({
     <main className="stats-dashboard-page">
       <header className="stats-dashboard-heading">
         <div><h2>Stat Dashboard</h2><p>ดู Character Stat ล่าสุดของสมาชิกในกิล</p></div>
+        <button type="button" onClick={openFocusConfig}>⚙ ตั้งค่า Focus Stats</button>
       </header>
 
       <section className="stats-summary-grid">
@@ -227,9 +398,31 @@ export function StatsDashboardPage({
         <section className="stats-card-grid">
           {filteredMembers.map((member) => {
             const submission = latestByMember.get(member.memberId) ?? null;
-            const summaryFields = submission
-              ? [CARD_SUMMARY_FIELDS[0], attackSummary(submission), ...CARD_SUMMARY_FIELDS.slice(1)]
+            const focusConfig = focusConfigByClass.get(memberClass(member));
+            const summaryFields = submission && focusConfig
+              ? focusConfig.statKeys.map((key) => ({ key, label: getStatLabel(key) }))
+              : submission
+                ? [
+                    { key: CARD_SUMMARY_KEYS[0], label: getStatLabel(CARD_SUMMARY_KEYS[0]) },
+                    attackSummary(submission),
+                    ...CARD_SUMMARY_KEYS.slice(1).map((key) => ({ key, label: getStatLabel(key) })),
+                  ]
+                : [];
+            const criterionByKey = new Map(
+              (focusConfig?.criteria ?? []).map((criterion) => [criterion.statKey, criterion]),
+            );
+            const evaluatedCriteria = submission
+              ? summaryFields.flatMap((field) => {
+                  const criterion = criterionByKey.get(field.key);
+                  const actual = submission.stats[field.key];
+                  if (!criterion || actual === undefined) return [];
+                  const met = criterion.operator === 'gte'
+                    ? actual >= criterion.target
+                    : actual <= criterion.target;
+                  return [{ ...criterion, met }];
+                })
               : [];
+            const metCriteriaCount = evaluatedCriteria.filter((criterion) => criterion.met).length;
             return (
               <article
                 key={member.memberId}
@@ -248,8 +441,35 @@ export function StatsDashboardPage({
                 {submission ? (
                   <>
                     <div className="member-stat-summary">
-                      {summaryFields.map((field) => <div key={field.key}><span>{field.label}</span><strong>{formatStatValue(field.key, submission.stats[field.key])}</strong></div>)}
+                      {summaryFields.map((field) => {
+                        const criterion = criterionByKey.get(field.key);
+                        const actual = submission.stats[field.key];
+                        const met = criterion && actual !== undefined
+                          ? criterion.operator === 'gte'
+                            ? actual >= criterion.target
+                            : actual <= criterion.target
+                          : null;
+                        const targetLabel = criterion
+                          ? `${criterion.operator === 'gte' ? '≥' : '≤'} ${formatStatValue(field.key, criterion.target)}`
+                          : '';
+                        return (
+                          <div key={field.key}>
+                            <span>{field.label}</span>
+                            <strong>{formatStatValue(field.key, actual)}</strong>
+                            {met !== null && (
+                              <small className={met ? 'criterion-met' : 'criterion-below'} title={`${met ? 'ถึงเป้า' : 'ต่ำกว่าเป้า'} ${targetLabel}`}>
+                                {met ? '✓ ถึงเป้า' : '⚠ ต่ำกว่าเป้า'} {targetLabel}
+                              </small>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                    {evaluatedCriteria.length > 0 && (
+                      <div className="member-criteria-summary">
+                        เป้าหมาย {metCriteriaCount} / {evaluatedCriteria.length}
+                      </div>
+                    )}
                     <button type="button" onClick={() => setModalMember(member)}>ดูรายละเอียด</button>
                   </>
                 ) : <div className="member-stat-missing">ยังไม่มีข้อมูล Stat</div>}
@@ -271,6 +491,83 @@ export function StatsDashboardPage({
               <button className="stat-modal-close" type="button" aria-label="ปิด" onClick={() => setModalMember(null)}>×</button>
             </header>
             <StatDetailContent stats={modalSubmission.stats} />
+          </section>
+        </div>
+      )}
+
+      {isFocusModalOpen && (
+        <div className="stat-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFocusConfig(); }}>
+          <section className="focus-config-modal" role="dialog" aria-modal="true" aria-labelledby="focus-config-title">
+            <header>
+              <div><h3 id="focus-config-title">ตั้งค่า Focus Stats</h3><p>เลือกค่า 1–{MAX_FOCUS_STATS} รายการสำหรับแสดงบนการ์ดของแต่ละอาชีพ</p></div>
+              <button type="button" aria-label="ปิด" onClick={closeFocusConfig}>×</button>
+            </header>
+            <label className="focus-class-select">
+              <span>เลือกอาชีพ</span>
+              <select value={focusClassName} onChange={(event) => chooseFocusClass(event.target.value)}>
+                {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+              </select>
+            </label>
+            <div className="focus-config-layout">
+              <section>
+                <h4>Stats ทั้งหมด</h4>
+                <div className="focus-stat-options">
+                  {STAT_OPTIONS.map(({ key, label }) => {
+                    const selected = draftFocusKeys.includes(key);
+                    return <button type="button" key={key} className={selected ? 'selected' : ''} disabled={selected} onClick={() => addFocusKey(key)}>{label}</button>;
+                  })}
+                </div>
+              </section>
+              <section>
+                <h4>เลือกแล้ว {draftFocusKeys.length} / {MAX_FOCUS_STATS}</h4>
+                <ol className="selected-focus-stats">
+                  {draftFocusKeys.map((key, index) => (
+                    <li key={key}>
+                      <div className="selected-focus-main">
+                        <span>{getStatLabel(key)}</span>
+                        <div>
+                          <button type="button" aria-label="เลื่อนขึ้น" disabled={index === 0} onClick={() => moveFocusKey(index, -1)}>↑</button>
+                          <button type="button" aria-label="เลื่อนลง" disabled={index === draftFocusKeys.length - 1} onClick={() => moveFocusKey(index, 1)}>↓</button>
+                          <button type="button" aria-label="นำออก" onClick={() => removeFocusKey(key)}>×</button>
+                        </div>
+                      </div>
+                      <div className="focus-criterion-controls">
+                        <select
+                          aria-label={`Criteria ของ ${getStatLabel(key)}`}
+                          value={draftCriteria[key]?.operator ?? 'none'}
+                          onChange={(event) => setCriterionOperator(key, event.target.value as 'none' | StatCriterion['operator'])}
+                        >
+                          <option value="none">ไม่กำหนด</option>
+                          <option value="gte">≥</option>
+                          <option value="lte">≤</option>
+                        </select>
+                        {draftCriteria[key] && (
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            aria-label={`Target ของ ${getStatLabel(key)}`}
+                            placeholder="Target"
+                            value={draftCriteria[key]?.targetText ?? ''}
+                            onChange={(event) => setDraftCriteria((current) => ({
+                              ...current,
+                              [key]: {
+                                operator: current[key]?.operator ?? 'gte',
+                                targetText: event.target.value,
+                              },
+                            }))}
+                          />
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            </div>
+            {focusConfigError && <div className="focus-config-error">{focusConfigError}</div>}
+            <footer>
+              <button type="button" disabled={isSavingFocus} onClick={closeFocusConfig}>ยกเลิก</button>
+              <button type="button" disabled={isSavingFocus || draftFocusKeys.length < 1} onClick={() => void handleSaveFocusConfig()}>{isSavingFocus ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+            </footer>
           </section>
         </div>
       )}
