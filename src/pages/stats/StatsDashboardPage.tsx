@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toBlob } from 'html-to-image';
 import {
   getLatestGuildStats,
   getStatFocusConfig,
@@ -100,6 +101,10 @@ export function StatsDashboardPage({
   const [statErrorMessage, setStatErrorMessage] = useState('');
   const [modalMember, setModalMember] = useState<Member | null>(null);
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
+  const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+  const [criteriaClassName, setCriteriaClassName] = useState('');
+  const [isCapturingCriteria, setIsCapturingCriteria] = useState(false);
+  const [criteriaCaptureMessage, setCriteriaCaptureMessage] = useState('');
   const [focusClassName, setFocusClassName] = useState('');
   const [draftFocusKeys, setDraftFocusKeys] = useState<CharacterStatKey[]>([]);
   const [draftCriteria, setDraftCriteria] = useState<DraftCriteria>({});
@@ -107,6 +112,7 @@ export function StatsDashboardPage({
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [dashboardNow] = useState(() => Date.now());
   const loadGenerationRef = useRef(0);
+  const criteriaCaptureRef = useRef<HTMLDivElement>(null);
 
   const classOptions = useMemo(() => Array.from(new Set(
     members.map(memberClass).filter((value) => value !== 'ไม่ระบุอาชีพ'),
@@ -176,7 +182,7 @@ export function StatsDashboardPage({
   }, [members, isLoadingMembers, memberErrorMessage]);
 
   useEffect(() => {
-    if (!modalMember && !isFocusModalOpen) return undefined;
+    if (!modalMember && !isFocusModalOpen && !isCriteriaModalOpen) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -184,6 +190,7 @@ export function StatsDashboardPage({
       if (event.key === 'Escape') {
         setModalMember(null);
         if (!isSavingFocus) setIsFocusModalOpen(false);
+        setIsCriteriaModalOpen(false);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -191,7 +198,62 @@ export function StatsDashboardPage({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isFocusModalOpen, isSavingFocus, modalMember]);
+  }, [isCriteriaModalOpen, isFocusModalOpen, isSavingFocus, modalMember]);
+
+  function openCriteriaReference(): void {
+    setCriteriaClassName(
+      selectedClass !== 'all' ? selectedClass : classOptions[0] ?? '',
+    );
+    setCriteriaCaptureMessage('');
+    setIsCriteriaModalOpen(true);
+  }
+
+  async function captureCriteria(): Promise<void> {
+    if (!criteriaCaptureRef.current) return;
+    setIsCapturingCriteria(true);
+    setCriteriaCaptureMessage('');
+    try {
+      const blob = await toBlob(criteriaCaptureRef.current, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+      if (!blob) throw new Error('สร้างภาพไม่สำเร็จ');
+
+      let copiedToClipboard = false;
+      if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        const pngBlob = blob.type === 'image/png'
+          ? blob
+          : new Blob([blob], { type: 'image/png' });
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': pngBlob }),
+          ]);
+          copiedToClipboard = true;
+        } catch {
+          copiedToClipboard = false;
+        }
+      }
+
+      if (copiedToClipboard) {
+        setCriteriaCaptureMessage('คัดลอกภาพแล้ว');
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = `ezmoo-${criteriaClassName || 'class'}-stat-criteria.png`;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+        setCriteriaCaptureMessage('ดาวน์โหลดภาพแล้ว');
+      }
+    } catch (error) {
+      setCriteriaCaptureMessage(
+        error instanceof Error ? error.message : 'แคป Criteria ไม่สำเร็จ',
+      );
+    } finally {
+      setIsCapturingCriteria(false);
+    }
+  }
 
   function openFocusConfig(): void {
     const initialClass = selectedClass !== 'all'
@@ -342,12 +404,22 @@ export function StatsDashboardPage({
     ? latestByMember.get(modalMember.memberId) ?? null
     : null;
   const loadingDashboard = isLoadingMembers || isLoadingStats;
+  const criteriaReferenceConfig = focusConfigByClass.get(criteriaClassName);
+  const criteriaReferenceRows = (criteriaReferenceConfig?.criteria ?? [])
+    .filter((criterion) => criteriaReferenceConfig?.statKeys.includes(criterion.statKey))
+    .sort((first, second) => (
+      (criteriaReferenceConfig?.statKeys.indexOf(first.statKey) ?? 0)
+      - (criteriaReferenceConfig?.statKeys.indexOf(second.statKey) ?? 0)
+    ));
 
   return (
     <main className="stats-dashboard-page">
       <header className="stats-dashboard-heading">
         <div><h2>Stat Dashboard</h2><p>ดู Character Stat ล่าสุดของสมาชิกในกิล</p></div>
-        <button type="button" onClick={openFocusConfig}>⚙ ตั้งค่า Focus Stats</button>
+        <div className="stats-heading-actions">
+          <button type="button" onClick={openCriteriaReference}>ดู Criteria</button>
+          <button type="button" onClick={openFocusConfig}>⚙ ตั้งค่า Focus Stats</button>
+        </div>
       </header>
 
       <section className="stats-summary-grid">
@@ -449,25 +521,19 @@ export function StatsDashboardPage({
                             ? actual >= criterion.target
                             : actual <= criterion.target
                           : null;
-                        const targetLabel = criterion
-                          ? `${criterion.operator === 'gte' ? '≥' : '≤'} ${formatStatValue(field.key, criterion.target)}`
-                          : '';
                         return (
                           <div key={field.key}>
                             <span>{field.label}</span>
-                            <strong>{formatStatValue(field.key, actual)}</strong>
-                            {met !== null && (
-                              <small className={met ? 'criterion-met' : 'criterion-below'} title={`${met ? 'ถึงเป้า' : 'ต่ำกว่าเป้า'} ${targetLabel}`}>
-                                {met ? '✓ ถึงเป้า' : '⚠ ต่ำกว่าเป้า'} {targetLabel}
-                              </small>
-                            )}
+                            <strong className={actual === undefined ? 'criterion-undefined' : met === true ? 'criterion-met' : met === false ? 'criterion-below' : ''}>
+                              {formatStatValue(field.key, actual)}
+                            </strong>
                           </div>
                         );
                       })}
                     </div>
                     {evaluatedCriteria.length > 0 && (
                       <div className="member-criteria-summary">
-                        เป้าหมาย {metCriteriaCount} / {evaluatedCriteria.length}
+                        ถึงเป้า {metCriteriaCount}/{evaluatedCriteria.length}
                       </div>
                     )}
                     <button type="button" onClick={() => setModalMember(member)}>ดูรายละเอียด</button>
@@ -568,6 +634,42 @@ export function StatsDashboardPage({
               <button type="button" disabled={isSavingFocus} onClick={closeFocusConfig}>ยกเลิก</button>
               <button type="button" disabled={isSavingFocus || draftFocusKeys.length < 1} onClick={() => void handleSaveFocusConfig()}>{isSavingFocus ? 'กำลังบันทึก...' : 'บันทึก'}</button>
             </footer>
+          </section>
+        </div>
+      )}
+
+      {isCriteriaModalOpen && (
+        <div className="stat-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsCriteriaModalOpen(false); }}>
+          <section className="criteria-reference-modal" role="dialog" aria-modal="true" aria-labelledby="criteria-reference-title">
+            <header>
+              <div><h3 id="criteria-reference-title">Stat Criteria</h3><p>ดูเป้าหมายตามอาชีพสำหรับแชร์ใน Discord</p></div>
+              <button type="button" aria-label="ปิด" onClick={() => setIsCriteriaModalOpen(false)}>×</button>
+            </header>
+            <div className="criteria-reference-controls">
+              <select value={criteriaClassName} onChange={(event) => { setCriteriaClassName(event.target.value); setCriteriaCaptureMessage(''); }}>
+                {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+              </select>
+              <button type="button" disabled={isCapturingCriteria || criteriaReferenceRows.length === 0} onClick={() => void captureCriteria()}>
+                {isCapturingCriteria ? 'กำลังแคป...' : 'แคป Criteria'}
+              </button>
+            </div>
+            {criteriaCaptureMessage && <div className="criteria-capture-message">{criteriaCaptureMessage}</div>}
+            <div ref={criteriaCaptureRef} className="criteria-capture-panel">
+              <header><span>EZMOO</span><h2>{criteriaClassName} Stat Criteria</h2></header>
+              {criteriaReferenceRows.length > 0 ? (
+                <table>
+                  <thead><tr><th>Stat</th><th>Target</th></tr></thead>
+                  <tbody>
+                    {criteriaReferenceRows.map((criterion) => (
+                      <tr key={criterion.statKey}>
+                        <td>{getStatLabel(criterion.statKey)}</td>
+                        <td>{criterion.operator === 'gte' ? '≥' : '≤'} {formatStatValue(criterion.statKey, criterion.target)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <div className="criteria-reference-empty">ยังไม่มี Criteria สำหรับอาชีพนี้</div>}
+            </div>
           </section>
         </div>
       )}
