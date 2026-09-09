@@ -1,11 +1,9 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getLatestMemberStats } from '../../services/googleApi';
-import type { StatSubmission } from '../../types/characterStats';
+import type { CharacterStatKey, StatSubmission } from '../../types/characterStats';
 import type { Member } from '../../types/member';
+import { StatDetailContent } from './StatDetailContent';
+import { formatStatValue } from './statDisplay';
 
 interface StatsDashboardPageProps {
   members: Member[];
@@ -14,33 +12,22 @@ interface StatsDashboardPageProps {
   onReloadMembers: () => Promise<void>;
 }
 
-const PERCENT_KEYS = new Set([
-  'critDmg', 'critDmgRes', 'pdmg', 'mdmg', 'pdmgReduction',
-  'mdmgReduction', 'healingDone', 'healingTaken', 'maxHpPercent',
-  'equipmentPatkPercent', 'equipmentMatkPercent', 'equipmentPdefPercent',
-  'equipmentMdefPercent', 'dmgVsDemiHuman', 'dmgReductionVsDemiHuman',
-  'dmgVsMedium', 'dmgReductionVsMedium',
-]);
+type SortMode = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
+interface CardSummaryField { key: CharacterStatKey; label: string }
 
-const STAT_SECTIONS = [
-  { title: 'Basic', stats: [['hp', 'HP'], ['patk', 'PATK'], ['matk', 'MATK'], ['pdef', 'PDEF'], ['mdef', 'MDEF']] },
-  { title: 'Critical', stats: [['crit', 'CRIT'], ['critDmg', 'CRIT DMG'], ['critRes', 'CRIT RES'], ['critDmgRes', 'CRIT DMG RES']] },
-  { title: 'Damage', stats: [['pdmg', 'PDMG'], ['mdmg', 'MDMG'], ['pdmgReduction', 'PDMG.R'], ['mdmgReduction', 'MDMG.R'], ['ignorePdef', 'Ignore PDEF'], ['ignoreMdef', 'Ignore MDEF'], ['pvpDmgBonus', 'PvP DMG Bonus'], ['pvpDmgReduction', 'PvP DMG Red']] },
-  { title: 'Healing', stats: [['healingDone', 'Healing Done'], ['healingTaken', 'Healing Taken']] },
-  { title: 'Equipment', stats: [['maxHpPercent', 'Max HP'], ['equipmentPatkPercent', 'Equipment PATK'], ['equipmentMatkPercent', 'Equipment MATK'], ['equipmentPdefPercent', 'Equipment PDEF'], ['equipmentMdefPercent', 'Equipment MDEF']] },
-  { title: 'Race / Size', stats: [['dmgVsDemiHuman', 'DMG vs Demi-Human'], ['dmgReductionVsDemiHuman', 'DMG Reduction vs Demi-Human'], ['dmgVsMedium', 'DMG vs Medium'], ['dmgReductionVsMedium', 'DMG Reduction vs Medium']] },
-] as const;
+const REQUEST_CONCURRENCY = 4;
+const MEMBER_REQUEST_TIMEOUT_MS = 15_000;
+const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+const CARD_SUMMARY_FIELDS: readonly CardSummaryField[] = [
+  { key: 'hp', label: 'HP' },
+  { key: 'pvpDmgBonus', label: 'PvP DMG Bonus' },
+  { key: 'pvpDmgReduction', label: 'PvP DMG Red' },
+];
 
 function memberClass(member: Member): string {
-  return member.guildLeagueClass.trim() || member.overrunClass.trim() || 'ไม่ระบุอาชีพ';
-}
-
-function formatStatValue(key: string, value: number | undefined): string {
-  if (value === undefined) return '—';
-  const formatted = new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 6,
-  }).format(value);
-  return `${formatted}${PERCENT_KEYS.has(key) ? '%' : ''}`;
+  return member.guildLeagueClass.trim()
+    || member.overrunClass.trim()
+    || 'ไม่ระบุอาชีพ';
 }
 
 function formatSubmittedAt(value: string): string {
@@ -53,6 +40,18 @@ function formatSubmittedAt(value: string): string {
       }).format(date);
 }
 
+function latestTime(submission: StatSubmission | null): number {
+  if (!submission) return Number.NEGATIVE_INFINITY;
+  const time = new Date(submission.submittedAt).getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+function attackSummary(submission: StatSubmission): CardSummaryField {
+  return (submission.stats.matk ?? 0) > (submission.stats.patk ?? 0)
+    ? { key: 'matk', label: 'MATK' }
+    : { key: 'patk', label: 'PATK' };
+}
+
 export function StatsDashboardPage({
   members,
   isLoadingMembers,
@@ -60,140 +59,267 @@ export function StatsDashboardPage({
   onReloadMembers,
 }: StatsDashboardPageProps) {
   const [searchText, setSearchText] = useState('');
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [latestSubmission, setLatestSubmission] = useState<StatSubmission | null>(null);
+  const [selectedClass, setSelectedClass] = useState('all');
+  const [sortMode, setSortMode] = useState<SortMode>('name-asc');
+  const [onlyWithStats, setOnlyWithStats] = useState(true);
+  const [latestByMember, setLatestByMember] = useState<Map<string, StatSubmission | null>>(new Map());
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [statErrorMessage, setStatErrorMessage] = useState('');
-  const requestSequence = useRef(0);
+  const [modalMember, setModalMember] = useState<Member | null>(null);
+  const [dashboardNow] = useState(() => Date.now());
+  const cacheRef = useRef(new Map<string, StatSubmission | null>());
+  const pendingRef = useRef(new Map<string, Promise<StatSubmission | null>>());
+  const loadGenerationRef = useRef(0);
+
+  const classOptions = useMemo(() => Array.from(new Set(
+    members.map(memberClass).filter((value) => value !== 'ไม่ระบุอาชีพ'),
+  )).sort((first, second) => first.localeCompare(second, 'th')), [members]);
+
+  async function getCachedLatest(memberId: string): Promise<StatSubmission | null> {
+    if (cacheRef.current.has(memberId)) return cacheRef.current.get(memberId) ?? null;
+    const existingRequest = pendingRef.current.get(memberId);
+    if (existingRequest) return existingRequest;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      MEMBER_REQUEST_TIMEOUT_MS,
+    );
+    const request = getLatestMemberStats(memberId, controller.signal)
+      .then((submission) => {
+        cacheRef.current.set(memberId, submission);
+        return submission;
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
+        pendingRef.current.delete(memberId);
+      });
+    pendingRef.current.set(memberId, request);
+    return request;
+  }
+
+  async function loadGuildStats(): Promise<void> {
+    const generation = loadGenerationRef.current + 1;
+    loadGenerationRef.current = generation;
+    console.info(`[Stats Dashboard] members loaded: ${members.length}`);
+
+    if (members.length === 0) {
+      setLatestByMember(new Map());
+      setIsLoadingStats(false);
+      return;
+    }
+
+    setIsLoadingStats(true);
+    setStatErrorMessage('');
+    let nextIndex = 0;
+    let failureCount = 0;
+    let successCount = 0;
+    let noStatCount = 0;
+    console.info(
+      `[Stats Dashboard] load latest stats START members=${members.length}`,
+    );
+
+    async function worker(): Promise<void> {
+      while (nextIndex < members.length) {
+        const member = members[nextIndex];
+        nextIndex += 1;
+        console.info(
+          `[Stats Dashboard] worker request START ${member.memberId}`,
+        );
+        try {
+          const submission = await getCachedLatest(member.memberId);
+          if (submission) successCount += 1;
+          else noStatCount += 1;
+          console.info(
+            `[Stats Dashboard] worker request DONE ${member.memberId} hasStat=${Boolean(submission)}`,
+          );
+        } catch (error) {
+          failureCount += 1;
+          console.warn(
+            `[Stats Dashboard] worker request FAILED ${member.memberId}`,
+            error instanceof Error ? error.message : 'Unknown error',
+          );
+        }
+      }
+    }
+
+    try {
+      await Promise.all(Array.from(
+        { length: Math.min(REQUEST_CONCURRENCY, members.length) },
+        () => worker(),
+      ));
+    } finally {
+      console.info(
+        `[Stats Dashboard] load latest stats DONE success=${successCount} noStat=${noStatCount} failed=${failureCount}`,
+      );
+      if (loadGenerationRef.current === generation) {
+        setLatestByMember(new Map(cacheRef.current));
+        setIsLoadingStats(false);
+        if (failureCount > 0) {
+          setStatErrorMessage(`โหลดข้อมูล Stat ไม่สำเร็จ ${failureCount} คน`);
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    // Loading remote data is the synchronization performed by this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!isLoadingMembers && !memberErrorMessage) void loadGuildStats();
+    return () => {
+      loadGenerationRef.current += 1;
+    };
+    // The page-session cache keeps successful member requests from repeating.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, isLoadingMembers, memberErrorMessage]);
+
+  useEffect(() => {
+    if (!modalMember) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') setModalMember(null);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modalMember]);
 
   const filteredMembers = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase();
-    return members
-      .filter((member) => !query || [
-        member.ign,
-        member.guildLeagueClass,
-        member.overrunClass,
-      ].some((value) => value.toLocaleLowerCase().includes(query)))
-      .sort((first, second) => first.ign.localeCompare(second.ign, 'th'));
-  }, [members, searchText]);
+    const result = members.filter((member) => {
+      const submission = latestByMember.get(member.memberId);
+      return (!query || member.ign.toLocaleLowerCase().includes(query))
+        && (selectedClass === 'all' || memberClass(member) === selectedClass)
+        && (!onlyWithStats || Boolean(submission));
+    });
 
-  async function loadLatest(member: Member): Promise<void> {
-    const requestId = requestSequence.current + 1;
-    requestSequence.current = requestId;
-    setSelectedMember(member);
-    setLatestSubmission(null);
-    setStatErrorMessage('');
-    setIsLoadingStats(true);
-    try {
-      const submission = await getLatestMemberStats(member.memberId);
-      if (requestSequence.current === requestId) setLatestSubmission(submission);
-    } catch (error) {
-      if (requestSequence.current === requestId) {
-        setStatErrorMessage(
-          error instanceof Error ? error.message : 'โหลดข้อมูล Stat ไม่สำเร็จ',
-        );
+    return result.sort((first, second) => {
+      if (sortMode === 'name-desc') return second.ign.localeCompare(first.ign, 'th');
+      if (sortMode === 'updated-desc' || sortMode === 'updated-asc') {
+        const difference = latestTime(latestByMember.get(first.memberId) ?? null)
+          - latestTime(latestByMember.get(second.memberId) ?? null);
+        return sortMode === 'updated-desc' ? -difference : difference;
       }
-    } finally {
-      if (requestSequence.current === requestId) setIsLoadingStats(false);
-    }
-  }
+      return first.ign.localeCompare(second.ign, 'th');
+    });
+  }, [latestByMember, members, onlyWithStats, searchText, selectedClass, sortMode]);
+
+  const submissions = Array.from(latestByMember.values()).filter(
+    (submission): submission is StatSubmission => Boolean(submission),
+  );
+  const staleCount = submissions.filter(
+    (submission) => dashboardNow - latestTime(submission) > STALE_AFTER_MS,
+  ).length;
+  const modalSubmission = modalMember
+    ? latestByMember.get(modalMember.memberId) ?? null
+    : null;
+  const loadingDashboard = isLoadingMembers || isLoadingStats;
 
   return (
     <main className="stats-dashboard-page">
       <header className="stats-dashboard-heading">
-        <div>
-          <h2>Stat Dashboard</h2>
-          <p>ดู Character Stat ล่าสุดของสมาชิกในกิล</p>
-        </div>
+        <div><h2>Stat Dashboard</h2><p>ดู Character Stat ล่าสุดของสมาชิกในกิล</p></div>
       </header>
 
-      <div className="stats-dashboard-layout">
-        <aside className="stats-member-panel">
-          <input
-            type="search"
-            value={searchText}
-            placeholder="ค้นหา IGN หรือ Class..."
-            onChange={(event) => setSearchText(event.target.value)}
-          />
+      <section className="stats-summary-grid">
+        {[
+          ['สมาชิกทั้งหมด', members.length],
+          ['มีข้อมูล Stat', submissions.length],
+          ['ยังไม่มีข้อมูล Stat', members.length - submissions.length],
+          ['อัปเดตเกิน 7 วัน', staleCount],
+        ].map(([label, value]) => (
+          <div key={label} className="stats-summary-card">
+            <span>{label}</span><strong>{loadingDashboard ? '—' : value}</strong>
+          </div>
+        ))}
+      </section>
 
-          {isLoadingMembers && <div className="stats-panel-state">กำลังโหลดสมาชิก...</div>}
-          {!isLoadingMembers && memberErrorMessage && (
-            <div className="stats-panel-state error">
-              <p>{memberErrorMessage}</p>
-              <button type="button" onClick={() => void onReloadMembers()}>ลองใหม่</button>
-            </div>
-          )}
-          {!isLoadingMembers && !memberErrorMessage && (
-            <div className="stats-member-list">
-              {filteredMembers.map((member) => (
-                <button
-                  type="button"
-                  key={member.memberId}
-                  className={selectedMember?.memberId === member.memberId ? 'active' : ''}
-                  onClick={() => void loadLatest(member)}
-                >
-                  <strong>{member.ign}</strong>
-                  <span>{memberClass(member)}</span>
-                </button>
-              ))}
-              {filteredMembers.length === 0 && (
-                <div className="stats-panel-state">ไม่พบสมาชิก</div>
-              )}
-            </div>
-          )}
-        </aside>
+      <section className="stats-dashboard-toolbar">
+        <input type="search" value={searchText} placeholder="ค้นหา IGN..." onChange={(event) => setSearchText(event.target.value)} />
+        <select value={selectedClass} onChange={(event) => setSelectedClass(event.target.value)}>
+          <option value="all">ทุกอาชีพ</option>
+          {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
+        </select>
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+          <option value="name-asc">A–Z</option><option value="name-desc">Z–A</option>
+          <option value="updated-desc">อัปเดตล่าสุด</option><option value="updated-asc">อัปเดตเก่าสุด</option>
+        </select>
+        <label className="stats-only-toggle">
+          <input type="checkbox" checked={onlyWithStats} onChange={(event) => setOnlyWithStats(event.target.checked)} />
+          เฉพาะคนที่มี Stat
+        </label>
+      </section>
 
-        <section className="latest-stat-panel">
-          {!selectedMember && (
-            <div className="latest-stat-empty">เลือกสมาชิกเพื่อดู Stat</div>
-          )}
-          {selectedMember && isLoadingStats && (
-            <div className="latest-stat-empty">กำลังโหลด Stat ของ {selectedMember.ign}...</div>
-          )}
-          {selectedMember && !isLoadingStats && statErrorMessage && (
-            <div className="latest-stat-empty error">
-              <p>{statErrorMessage}</p>
-              <button type="button" onClick={() => void loadLatest(selectedMember)}>ลองใหม่</button>
-            </div>
-          )}
-          {selectedMember && !isLoadingStats && !statErrorMessage && !latestSubmission && (
-            <div className="latest-stat-empty">ยังไม่มีข้อมูล Stat ของสมาชิกคนนี้</div>
-          )}
-          {selectedMember && !isLoadingStats && !statErrorMessage && latestSubmission && (
-            <>
-              <header className="latest-stat-header">
-                <div>
-                  <span className="latest-stat-eyebrow">Latest Stat</span>
-                  <h3>{selectedMember.ign}</h3>
-                  <span className="latest-stat-class">{memberClass(selectedMember)}</span>
-                </div>
-                <dl>
-                  <div><dt>อัปเดตล่าสุด</dt><dd>{formatSubmittedAt(latestSubmission.submittedAt)}</dd></div>
-                  {latestSubmission.submittedByDiscordName && (
-                    <div><dt>Submitted by</dt><dd>{latestSubmission.submittedByDiscordName}</dd></div>
-                  )}
-                </dl>
-              </header>
+      {memberErrorMessage && (
+        <section className="stats-dashboard-error"><span>{memberErrorMessage}</span><button type="button" onClick={() => void onReloadMembers()}>ลองใหม่</button></section>
+      )}
+      {statErrorMessage && (
+        <section className="stats-dashboard-error"><span>{statErrorMessage}</span><button type="button" onClick={() => void loadGuildStats()}>ลองใหม่</button></section>
+      )}
 
-              <div className="latest-stat-sections">
-                {STAT_SECTIONS.map((section) => (
-                  <section key={section.title} className="latest-stat-section">
-                    <h4>{section.title}</h4>
-                    <div className="latest-stat-grid">
-                      {section.stats.map(([key, label]) => (
-                        <div key={key} className="latest-stat-cell">
-                          <span>{label}</span>
-                          <strong>{formatStatValue(key, latestSubmission.stats[key])}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            </>
-          )}
+      {loadingDashboard ? (
+        <section className="stats-card-grid" aria-label="กำลังโหลดข้อมูล Stat">
+          {Array.from({ length: 8 }, (_, index) => <div key={index} className="member-stat-card stats-card-skeleton" />)}
         </section>
-      </div>
+      ) : filteredMembers.length === 0 ? (
+        <section className="stats-dashboard-empty">
+          {submissions.length === 0 && onlyWithStats ? 'ยังไม่มีสมาชิกส่งข้อมูล Stat' : 'ไม่พบสมาชิกตามตัวกรอง'}
+        </section>
+      ) : (
+        <section className="stats-card-grid">
+          {filteredMembers.map((member) => {
+            const submission = latestByMember.get(member.memberId) ?? null;
+            const summaryFields = submission
+              ? [CARD_SUMMARY_FIELDS[0], attackSummary(submission), ...CARD_SUMMARY_FIELDS.slice(1)]
+              : [];
+            return (
+              <article
+                key={member.memberId}
+                className={`member-stat-card${submission ? '' : ' muted'}`}
+                role={submission ? 'button' : undefined}
+                tabIndex={submission ? 0 : undefined}
+                onClick={() => submission && setModalMember(member)}
+                onKeyDown={(event) => {
+                  if (submission && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    setModalMember(member);
+                  }
+                }}
+              >
+                <header><div><h3>{member.ign}</h3><span className="stats-class-badge">{memberClass(member)}</span></div>{submission && <time>{formatSubmittedAt(submission.submittedAt)}</time>}</header>
+                {submission ? (
+                  <>
+                    <div className="member-stat-summary">
+                      {summaryFields.map((field) => <div key={field.key}><span>{field.label}</span><strong>{formatStatValue(field.key, submission.stats[field.key])}</strong></div>)}
+                    </div>
+                    <button type="button" onClick={() => setModalMember(member)}>ดูรายละเอียด</button>
+                  </>
+                ) : <div className="member-stat-missing">ยังไม่มีข้อมูล Stat</div>}
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {modalMember && modalSubmission && (
+        <div className="stat-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModalMember(null); }}>
+          <section className="stat-detail-modal" role="dialog" aria-modal="true" aria-labelledby="stat-modal-title">
+            <header className="latest-stat-header">
+              <div><span className="latest-stat-eyebrow">Latest Stat</span><h3 id="stat-modal-title">{modalMember.ign}</h3><span className="latest-stat-class">{memberClass(modalMember)}</span></div>
+              <dl>
+                <div><dt>อัปเดตล่าสุด</dt><dd>{formatSubmittedAt(modalSubmission.submittedAt)}</dd></div>
+                {modalSubmission.submittedByDiscordName && <div><dt>Submitted by</dt><dd>{modalSubmission.submittedByDiscordName}</dd></div>}
+              </dl>
+              <button className="stat-modal-close" type="button" aria-label="ปิด" onClick={() => setModalMember(null)}>×</button>
+            </header>
+            <StatDetailContent stats={modalSubmission.stats} />
+          </section>
+        </div>
+      )}
     </main>
   );
 }
