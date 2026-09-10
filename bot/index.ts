@@ -28,10 +28,7 @@ import type { PendingStatSubmission } from './types/session.js';
 import type { Member } from '../src/types/member.js';
 import { refreshDiscordMemberLinks } from './services/discordMemberLinks.js';
 import {
-  runAutoVoiceCheck,
-  safeAutoVoiceCheckError,
-  startAutoVoiceCheckScheduler,
-  validateAutoVoiceCheckChannel,
+  startAutoVoiceCheck,
 } from './services/autoVoiceCheck.js';
 
 const REQUIRED_ENVIRONMENT_VARIABLES = [
@@ -59,11 +56,7 @@ console.log(
 
 const token = process.env.DISCORD_TOKEN as string;
 const voiceCheckChannelId = process.env.VOICE_CHECK_CHANNEL_ID?.trim();
-if (voiceCheckChannelId) {
-  console.log('Auto Voice Check channel: configured');
-} else {
-  console.warn('[Auto Voice Check] VOICE_CHECK_CHANNEL_ID is not configured; scheduler disabled');
-}
+const runVoiceCheckOnReady = process.env.VOICE_CHECK_RUN_ON_READY === 'true';
 
 function safeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
@@ -126,28 +119,23 @@ function discordErrorCode(error: unknown): number | undefined {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot ready as ${readyClient.user.tag}`);
-  void refreshMemberCache()
+  const memberCacheReady = refreshMemberCache()
     .then((members) => console.log(`[Member cache] Preloaded ${members.length} members`))
     .catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`[Member cache] Preload failed: ${message}`);
     });
-  void refreshDiscordMemberLinks()
+  const discordLinkCacheReady = refreshDiscordMemberLinks()
     .then((links) => console.log(`[Discord member links] Preloaded ${links.length} links`))
     .catch((error: unknown) => {
       console.warn(`[Discord member links] Preload failed: ${safeErrorMessage(error)}`);
     });
-  if (voiceCheckChannelId) {
-    void validateAutoVoiceCheckChannel(readyClient, voiceCheckChannelId);
-    startAutoVoiceCheckScheduler(readyClient, voiceCheckChannelId, refreshMemberCache);
-    console.log('[Auto Voice Check] Scheduler started for Tue/Thu/Sun 19:55 Asia/Bangkok');
-    if (process.env.VOICE_CHECK_RUN_ON_READY === 'true') {
-      void runAutoVoiceCheck(readyClient, voiceCheckChannelId, refreshMemberCache)
-        .catch((error: unknown) => {
-          console.warn(`[Auto Voice Check] Startup test failed: ${safeAutoVoiceCheckError(error)}`);
-        });
-    }
-  }
+  void startAutoVoiceCheck(readyClient, {
+    channelId: voiceCheckChannelId,
+    runOnReady: runVoiceCheckOnReady,
+    cachesReady: Promise.all([memberCacheReady, discordLinkCacheReady]),
+    loadMembers: refreshMemberCache,
+  });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
