@@ -152,22 +152,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'link-member') {
-      await runLinkMemberCommand(interaction, await refreshMemberCache());
+      await runLinkMemberCommand(interaction, refreshMemberCache);
       return;
     }
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'unlink-member') {
-      await runUnlinkMemberCommand(interaction, await refreshMemberCache());
+      await runUnlinkMemberCommand(interaction, refreshMemberCache);
       return;
     }
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'links') {
-      await runLinksCommand(interaction, await refreshMemberCache());
+      await runLinksCommand(interaction, refreshMemberCache);
       return;
     }
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'voice-check') {
-      await runVoiceCheckCommand(interaction, await refreshMemberCache());
+      await runVoiceCheckCommand(interaction, refreshMemberCache);
       return;
     }
 

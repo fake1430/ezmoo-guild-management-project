@@ -108,12 +108,11 @@ function isAdmin(interaction: ChatInputCommandInteraction): boolean {
   );
 }
 
-async function requireAdmin(interaction: ChatInputCommandInteraction): Promise<boolean> {
+async function requireAdminAfterDefer(
+  interaction: ChatInputCommandInteraction,
+): Promise<boolean> {
   if (interaction.inGuild() && isAdmin(interaction)) return true;
-  await interaction.reply({
-    content: 'คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลที่มีสิทธิ์ Manage Server',
-    flags: MessageFlags.Ephemeral,
-  });
+  await interaction.editReply('คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลที่มีสิทธิ์ Manage Server');
   return false;
 }
 
@@ -144,12 +143,13 @@ async function sendChunks(
 
 export async function runLinkMemberCommand(
   interaction: ChatInputCommandInteraction,
-  members: Member[],
+  loadMembers: () => Promise<Member[]>,
 ): Promise<void> {
-  if (!(await requireAdmin(interaction))) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!(await requireAdminAfterDefer(interaction))) return;
   const user = interaction.options.getUser('discord', true);
   const memberId = interaction.options.getString('member', true);
+  const members = await loadMembers();
   const member = members.find((item) => item.memberId === memberId);
   if (!member) {
     await interaction.editReply('ไม่พบสมาชิกนี้ในระบบ กรุณาเลือกใหม่จากรายการ');
@@ -165,12 +165,15 @@ export async function runLinkMemberCommand(
 
 export async function runUnlinkMemberCommand(
   interaction: ChatInputCommandInteraction,
-  members: Member[],
+  loadMembers: () => Promise<Member[]>,
 ): Promise<void> {
-  if (!(await requireAdmin(interaction))) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!(await requireAdminAfterDefer(interaction))) return;
   const user = interaction.options.getUser('discord', true);
-  const links = await getDiscordMemberLinksCached();
+  const [members, links] = await Promise.all([
+    loadMembers(),
+    getDiscordMemberLinksCached(),
+  ]);
   const existing = links.find((link) => link.discordUserId === user.id);
   if (!existing) {
     await interaction.editReply('Discord user นี้ยังไม่ได้ link กับสมาชิก');
@@ -184,11 +187,14 @@ export async function runUnlinkMemberCommand(
 
 export async function runLinksCommand(
   interaction: ChatInputCommandInteraction,
-  members: Member[],
+  loadMembers: () => Promise<Member[]>,
 ): Promise<void> {
-  if (!(await requireAdmin(interaction))) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const links = await getDiscordMemberLinksCached();
+  if (!(await requireAdminAfterDefer(interaction))) return;
+  const [members, links] = await Promise.all([
+    loadMembers(),
+    getDiscordMemberLinksCached(),
+  ]);
   const memberIds = new Set(members.map((member) => member.memberId));
   const linkedMemberIds = new Set(
     links.filter((link) => memberIds.has(link.memberId)).map((link) => link.memberId),

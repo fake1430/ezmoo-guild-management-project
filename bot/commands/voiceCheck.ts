@@ -44,17 +44,17 @@ function splitSections(
 
 export async function runVoiceCheckCommand(
   interaction: ChatInputCommandInteraction,
-  members: Member[],
+  loadMembers: () => Promise<Member[]>,
 ): Promise<void> {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!interaction.inCachedGuild()) {
-    await interaction.reply({
-      content: 'คำสั่งนี้ใช้ได้เฉพาะใน Discord server',
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.editReply('คำสั่งนี้ใช้ได้เฉพาะใน Discord server');
     return;
   }
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const links = await getDiscordMemberLinksCached();
+  const [members, links] = await Promise.all([
+    loadMembers(),
+    getDiscordMemberLinksCached(),
+  ]);
   const linkByDiscordId = new Map(links.map((link) => [link.discordUserId, link]));
   const memberById = new Map(members.map((member) => [member.memberId, member]));
   const onlineMemberIds = new Set<string>();
