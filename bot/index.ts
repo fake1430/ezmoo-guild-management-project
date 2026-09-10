@@ -27,6 +27,12 @@ import { DEFAULT_GEMINI_MODEL } from './services/vision.js';
 import type { PendingStatSubmission } from './types/session.js';
 import type { Member } from '../src/types/member.js';
 import { refreshDiscordMemberLinks } from './services/discordMemberLinks.js';
+import {
+  runAutoVoiceCheck,
+  safeAutoVoiceCheckError,
+  startAutoVoiceCheckScheduler,
+  validateAutoVoiceCheckChannel,
+} from './services/autoVoiceCheck.js';
 
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   'DISCORD_TOKEN',
@@ -52,6 +58,12 @@ console.log(
 );
 
 const token = process.env.DISCORD_TOKEN as string;
+const voiceCheckChannelId = process.env.VOICE_CHECK_CHANNEL_ID?.trim();
+if (voiceCheckChannelId) {
+  console.log('Auto Voice Check channel: configured');
+} else {
+  console.warn('[Auto Voice Check] VOICE_CHECK_CHANNEL_ID is not configured; scheduler disabled');
+}
 
 function safeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
@@ -125,6 +137,17 @@ client.once(Events.ClientReady, (readyClient) => {
     .catch((error: unknown) => {
       console.warn(`[Discord member links] Preload failed: ${safeErrorMessage(error)}`);
     });
+  if (voiceCheckChannelId) {
+    void validateAutoVoiceCheckChannel(readyClient, voiceCheckChannelId);
+    startAutoVoiceCheckScheduler(readyClient, voiceCheckChannelId, refreshMemberCache);
+    console.log('[Auto Voice Check] Scheduler started for Tue/Thu/Sun 19:55 Asia/Bangkok');
+    if (process.env.VOICE_CHECK_RUN_ON_READY === 'true') {
+      void runAutoVoiceCheck(readyClient, voiceCheckChannelId, refreshMemberCache)
+        .catch((error: unknown) => {
+          console.warn(`[Auto Voice Check] Startup test failed: ${safeAutoVoiceCheckError(error)}`);
+        });
+    }
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
