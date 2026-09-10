@@ -10,6 +10,13 @@ import {
 } from 'discord.js';
 import { runStatCommand } from './commands/stat.js';
 import {
+  runLinkMemberAutocomplete,
+  runLinkMemberCommand,
+  runLinksCommand,
+  runUnlinkMemberCommand,
+} from './commands/memberLinks.js';
+import { runVoiceCheckCommand } from './commands/voiceCheck.js';
+import {
   buildStatPreview,
   formatModalDefaultValue,
   getStatDisplayItem,
@@ -19,6 +26,7 @@ import { getMembers, saveStatSubmission } from './services/guildApi.js';
 import { DEFAULT_GEMINI_MODEL } from './services/vision.js';
 import type { PendingStatSubmission } from './types/session.js';
 import type { Member } from '../src/types/member.js';
+import { refreshDiscordMemberLinks } from './services/discordMemberLinks.js';
 
 const REQUIRED_ENVIRONMENT_VARIABLES = [
   'DISCORD_TOKEN',
@@ -67,7 +75,9 @@ process.on('uncaughtException', (error) => {
 const sessions = new Map<string, PendingStatSubmission>();
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000;
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+});
 let memberCache: Member[] = [];
 let memberCacheUpdatedAt = 0;
 let memberRefreshPromise: Promise<Member[]> | null = null;
@@ -110,6 +120,11 @@ client.once(Events.ClientReady, (readyClient) => {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`[Member cache] Preload failed: ${message}`);
     });
+  void refreshDiscordMemberLinks()
+    .then((links) => console.log(`[Discord member links] Preloaded ${links.length} links`))
+    .catch((error: unknown) => {
+      console.warn(`[Discord member links] Preload failed: ${safeErrorMessage(error)}`);
+    });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -126,8 +141,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
+    if (interaction.isAutocomplete() && interaction.commandName === 'link-member') {
+      await runLinkMemberAutocomplete(interaction, getMemberCacheSnapshot());
+      return;
+    }
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'stat') {
       await runStatCommand(interaction, sessions);
+      return;
+    }
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'link-member') {
+      await runLinkMemberCommand(interaction, await refreshMemberCache());
+      return;
+    }
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'unlink-member') {
+      await runUnlinkMemberCommand(interaction, await refreshMemberCache());
+      return;
+    }
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'links') {
+      await runLinksCommand(interaction, await refreshMemberCache());
+      return;
+    }
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'voice-check') {
+      await runVoiceCheckCommand(interaction, await refreshMemberCache());
       return;
     }
 

@@ -4,6 +4,10 @@ Copy `statSubmissions.gs` into the Apps Script project that already serves the
 guild API. It deliberately reuses the existing `getMembers()`, which reads
 `SHEETS.MEMBERS` (`Member`), so it does not introduce another member source.
 
+The Discord member mapping feature also requires uploading
+`discordMemberLinks.gs`. It creates `DiscordMemberLinks` lazily with columns
+`discordUserId | memberId | linkedAt | linkedByDiscordId`.
+
 Keep the existing `doGet` and insert this block immediately after the existing
 `action` declaration and before `switch (action)`:
 
@@ -11,6 +15,10 @@ Keep the existing `doGet` and insert this block immediately after the existing
 const statResult = handleStatGetAction(action, e.parameter);
 if (statResult.handled) {
   return jsonResponse({ success: true, data: statResult.data });
+}
+const discordLinkResult = handleDiscordMemberLinkGetAction(action);
+if (discordLinkResult.handled) {
+  return jsonResponse({ success: true, data: discordLinkResult.data });
 }
 ```
 
@@ -37,6 +45,14 @@ function doGet(e) {
       });
     }
 
+    const discordLinkResult = handleDiscordMemberLinkGetAction(action);
+    if (discordLinkResult.handled) {
+      return jsonResponse({
+        success: true,
+        data: discordLinkResult.data,
+      });
+    }
+
     switch (action) {
       // Keep every existing case unchanged.
 ```
@@ -55,6 +71,14 @@ if (statResult.handled) {
     success: true,
     data: statResult.data,
     message: statResult.message,
+  });
+}
+const discordLinkResult = handleDiscordMemberLinkPostAction(action, payload);
+if (discordLinkResult.handled) {
+  return jsonResponse({
+    success: true,
+    data: discordLinkResult.data,
+    message: discordLinkResult.message,
   });
 }
 
