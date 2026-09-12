@@ -95,3 +95,9 @@ Every confirmed submission is appended as a new row.
 Deploy a new Web App version after adding the module and routes. Execute as the
 owner and grant access appropriate to the existing API. The bot URL must point
 to that deployment.
+
+When Focus Stats derived keys change, deploy a new Web App version as well.
+The deployed `statSubmissions.gs` must include `rawDef` and `rawMdef` in
+`FOCUS_STAT_KEYS`; otherwise saving those choices returns
+`Unknown focus stat key`. These keys belong only to Focus Stats config and must
+not be added to `CHARACTER_STAT_KEYS` or persisted in `statsJson`.

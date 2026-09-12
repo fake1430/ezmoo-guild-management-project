@@ -32,8 +32,20 @@ export const CHARACTER_STAT_KEYS = [
 export type CharacterStatKey =
   (typeof CHARACTER_STAT_KEYS)[number];
 
-export type DerivedStatKey = 'rawDef' | 'rawMdef';
-export type FocusStatKey = CharacterStatKey | DerivedStatKey;
+export const DERIVED_STAT_KEYS = [
+  'rawDef',
+  'rawMdef',
+] as const;
+
+export const FOCUS_STAT_KEYS = [
+  ...CHARACTER_STAT_KEYS,
+  ...DERIVED_STAT_KEYS,
+] as const;
+
+export type DerivedStatKey =
+  (typeof DERIVED_STAT_KEYS)[number];
+export type FocusStatKey =
+  (typeof FOCUS_STAT_KEYS)[number];
 
 export type CharacterStats = Partial<
   Record<CharacterStatKey, number>
