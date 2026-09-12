@@ -8,13 +8,16 @@ import {
 import type {
   CharacterStatKey,
   ClassFocusStatConfig,
+  FocusStatKey,
   StatCriterion,
   StatSubmission,
 } from '../../types/characterStats';
 import type { Member } from '../../types/member';
 import { StatDetailContent } from './StatDetailContent';
 import {
-  formatStatValue,
+  formatFocusStatTarget,
+  formatFocusStatValue,
+  getFocusStatValue,
   getStatLabel,
   STAT_OPTIONS,
 } from './statDisplay';
@@ -27,12 +30,12 @@ interface StatsDashboardPageProps {
 }
 
 type SortMode = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
-interface CardSummaryField { key: CharacterStatKey; label: string }
+interface CardSummaryField { key: FocusStatKey; label: string }
 interface DraftCriterion {
   operator: StatCriterion['operator'];
   targetText: string;
 }
-type DraftCriteria = Partial<Record<CharacterStatKey, DraftCriterion>>;
+type DraftCriteria = Partial<Record<FocusStatKey, DraftCriterion>>;
 
 const STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FOCUS_STATS = 10;
@@ -106,7 +109,7 @@ export function StatsDashboardPage({
   const [isCapturingCriteria, setIsCapturingCriteria] = useState(false);
   const [criteriaCaptureMessage, setCriteriaCaptureMessage] = useState('');
   const [focusClassName, setFocusClassName] = useState('');
-  const [draftFocusKeys, setDraftFocusKeys] = useState<CharacterStatKey[]>([]);
+  const [draftFocusKeys, setDraftFocusKeys] = useState<FocusStatKey[]>([]);
   const [draftCriteria, setDraftCriteria] = useState<DraftCriteria>({});
   const [focusConfigError, setFocusConfigError] = useState('');
   const [isSavingFocus, setIsSavingFocus] = useState(false);
@@ -281,7 +284,7 @@ export function StatsDashboardPage({
     setFocusConfigError('');
   }
 
-  function addFocusKey(key: CharacterStatKey): void {
+  function addFocusKey(key: FocusStatKey): void {
     if (draftFocusKeys.includes(key)) return;
     if (draftFocusKeys.length >= MAX_FOCUS_STATS) {
       setFocusConfigError(`เลือก Focus Stats ได้สูงสุด ${MAX_FOCUS_STATS} ค่า`);
@@ -301,7 +304,7 @@ export function StatsDashboardPage({
     });
   }
 
-  function removeFocusKey(key: CharacterStatKey): void {
+  function removeFocusKey(key: FocusStatKey): void {
     setDraftFocusKeys((current) => current.filter((item) => item !== key));
     setDraftCriteria((current) => {
       const next = { ...current };
@@ -311,7 +314,7 @@ export function StatsDashboardPage({
   }
 
   function setCriterionOperator(
-    key: CharacterStatKey,
+    key: FocusStatKey,
     operator: 'none' | StatCriterion['operator'],
   ): void {
     setDraftCriteria((current) => {
@@ -486,7 +489,7 @@ export function StatsDashboardPage({
             const evaluatedCriteria = submission
               ? summaryFields.flatMap((field) => {
                   const criterion = criterionByKey.get(field.key);
-                  const actual = submission.stats[field.key];
+                  const actual = getFocusStatValue(submission.stats, field.key);
                   if (!criterion || actual === undefined) return [];
                   const met = criterion.operator === 'gte'
                     ? actual >= criterion.target
@@ -515,7 +518,7 @@ export function StatsDashboardPage({
                     <div className="member-stat-summary">
                       {summaryFields.map((field) => {
                         const criterion = criterionByKey.get(field.key);
-                        const actual = submission.stats[field.key];
+                        const actual = getFocusStatValue(submission.stats, field.key);
                         const met = criterion && actual !== undefined
                           ? criterion.operator === 'gte'
                             ? actual >= criterion.target
@@ -525,7 +528,7 @@ export function StatsDashboardPage({
                           <div key={field.key}>
                             <span>{field.label}</span>
                             <strong className={actual === undefined ? 'criterion-undefined' : met === true ? 'criterion-met' : met === false ? 'criterion-below' : ''}>
-                              {formatStatValue(field.key, actual)}
+                              {formatFocusStatValue(submission.stats, field.key)}
                             </strong>
                           </div>
                         );
@@ -663,7 +666,7 @@ export function StatsDashboardPage({
                     {criteriaReferenceRows.map((criterion) => (
                       <tr key={criterion.statKey}>
                         <td>{getStatLabel(criterion.statKey)}</td>
-                        <td>{criterion.operator === 'gte' ? '≥' : '≤'} {formatStatValue(criterion.statKey, criterion.target)}</td>
+                        <td>{criterion.operator === 'gte' ? '≥' : '≤'} {formatFocusStatTarget(criterion.statKey, criterion.target)}</td>
                       </tr>
                     ))}
                   </tbody>

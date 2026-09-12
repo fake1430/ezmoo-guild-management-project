@@ -1,4 +1,9 @@
-import type { CharacterStatKey } from '../../types/characterStats';
+import type {
+  CharacterStatKey,
+  CharacterStats,
+  DerivedStatKey,
+  FocusStatKey,
+} from '../../types/characterStats';
 
 export interface StatSection {
   title: string;
@@ -14,13 +19,20 @@ export const STAT_SECTIONS: readonly StatSection[] = [
   { title: 'Race / Size', stats: [['dmgVsDemiHuman', 'DMG vs Demi-Human'], ['dmgReductionVsDemiHuman', 'DMG Reduction vs Demi-Human'], ['dmgVsMedium', 'DMG vs Medium'], ['dmgReductionVsMedium', 'DMG Reduction vs Medium']] },
 ];
 
-export const STAT_OPTIONS = STAT_SECTIONS.flatMap((section) => (
-  section.stats.map(([key, label]) => ({ key, label }))
-));
+export const STAT_OPTIONS: ReadonlyArray<{
+  key: FocusStatKey;
+  label: string;
+}> = [
+  ...STAT_SECTIONS.flatMap((section) => (
+    section.stats.map(([key, label]) => ({ key, label }))
+  )),
+  { key: 'rawDef', label: 'Raw DEF' },
+  { key: 'rawMdef', label: 'Raw MDEF' },
+];
 
 const STAT_LABELS = new Map(STAT_OPTIONS.map(({ key, label }) => [key, label]));
 
-export function getStatLabel(key: CharacterStatKey): string {
+export function getStatLabel(key: FocusStatKey): string {
   return STAT_LABELS.get(key) ?? key;
 }
 
@@ -47,12 +59,82 @@ export function formatRawDef(
   pdef: number | null | undefined,
   equipmentPdefPercent: number | null | undefined,
 ): string {
-  if (pdef == null || equipmentPdefPercent == null) return '—';
+  const rawDef = calculateRawDef(pdef, equipmentPdefPercent);
+  return formatDerivedStatValue(rawDef);
+}
 
-  const rawDef = (pdef - 140) / (1 + equipmentPdefPercent / 100);
-  if (!Number.isFinite(rawDef)) return '—';
+export function calculateRawDef(
+  pdef: number | null | undefined,
+  equipmentPdefPercent: number | null | undefined,
+): number | undefined {
+  return calculateRawDefense(pdef, equipmentPdefPercent, 140);
+}
 
+export function formatRawMdef(
+  mdef: number | null | undefined,
+  equipmentMdefPercent: number | null | undefined,
+): string {
+  const rawMdef = calculateRawMdef(mdef, equipmentMdefPercent);
+  return formatDerivedStatValue(rawMdef);
+}
+
+export function calculateRawMdef(
+  mdef: number | null | undefined,
+  equipmentMdefPercent: number | null | undefined,
+): number | undefined {
+  return calculateRawDefense(mdef, equipmentMdefPercent, 100);
+}
+
+function calculateRawDefense(
+  defense: number | null | undefined,
+  equipmentPercent: number | null | undefined,
+  baseDefense: number,
+): number | undefined {
+  if (defense == null || equipmentPercent == null) return undefined;
+
+  const rawDefense = (defense - baseDefense) / (1 + equipmentPercent / 100);
+  return Number.isFinite(rawDefense) ? rawDefense : undefined;
+}
+
+function formatDerivedStatValue(value: number | undefined): string {
+  if (value === undefined) return '—';
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 0,
-  }).format(rawDef);
+  }).format(value);
+}
+
+function getDerivedStatValue(
+  stats: CharacterStats,
+  key: DerivedStatKey,
+): number | undefined {
+  return key === 'rawDef'
+    ? calculateRawDef(stats.pdef, stats.equipmentPdefPercent)
+    : calculateRawMdef(stats.mdef, stats.equipmentMdefPercent);
+}
+
+export function getFocusStatValue(
+  stats: CharacterStats,
+  key: FocusStatKey,
+): number | undefined {
+  return key === 'rawDef' || key === 'rawMdef'
+    ? getDerivedStatValue(stats, key)
+    : stats[key];
+}
+
+export function formatFocusStatValue(
+  stats: CharacterStats,
+  key: FocusStatKey,
+): string {
+  return key === 'rawDef' || key === 'rawMdef'
+    ? formatDerivedStatValue(getDerivedStatValue(stats, key))
+    : formatStatValue(key, stats[key]);
+}
+
+export function formatFocusStatTarget(
+  key: FocusStatKey,
+  value: number,
+): string {
+  return key === 'rawDef' || key === 'rawMdef'
+    ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+    : formatStatValue(key, value);
 }

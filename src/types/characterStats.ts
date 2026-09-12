@@ -2,6 +2,8 @@ export type {
   CharacterStatKey,
   CharacterStats,
   ClassFocusStatConfig,
+  DerivedStatKey,
+  FocusStatKey,
   StatCriterion,
   StatSubmission,
 } from '../../shared/characterStats';

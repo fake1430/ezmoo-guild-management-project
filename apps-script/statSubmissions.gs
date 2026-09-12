@@ -23,6 +23,7 @@ const CHARACTER_STAT_KEYS = [
   'dmgVsDemiHuman', 'dmgReductionVsDemiHuman', 'dmgVsMedium',
   'dmgReductionVsMedium',
 ];
+const FOCUS_STAT_KEYS = CHARACTER_STAT_KEYS.concat(['rawDef', 'rawMdef']);
 const STAT_FOCUS_CONFIG_HEADERS = [
   'className', 'statKeysJson', 'criteriaJson', 'updatedAt',
 ];
@@ -245,7 +246,7 @@ function validateFocusStatKeys_(input) {
 
   const seen = {};
   return input.map(function (key) {
-    if (typeof key !== 'string' || CHARACTER_STAT_KEYS.indexOf(key) < 0) {
+    if (typeof key !== 'string' || FOCUS_STAT_KEYS.indexOf(key) < 0) {
       throw new Error('Unknown focus stat key: ' + key);
     }
     if (seen[key]) throw new Error('Duplicate focus stat key: ' + key);
@@ -263,7 +264,7 @@ function validateStatCriteria_(input, statKeys) {
       throw new Error('Each criterion must be an object');
     }
     const statKey = criterion.statKey;
-    if (typeof statKey !== 'string' || CHARACTER_STAT_KEYS.indexOf(statKey) < 0) {
+    if (typeof statKey !== 'string' || FOCUS_STAT_KEYS.indexOf(statKey) < 0) {
       throw new Error('Unknown criterion stat key: ' + statKey);
     }
     if (statKeys.indexOf(statKey) < 0) {

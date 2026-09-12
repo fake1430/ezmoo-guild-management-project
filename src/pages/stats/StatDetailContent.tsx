@@ -1,6 +1,7 @@
 import type { CharacterStats } from '../../types/characterStats';
 import {
   formatRawDef,
+  formatRawMdef,
   formatStatValue,
   STAT_SECTIONS,
 } from './statDisplay';
@@ -20,14 +21,16 @@ export function StatDetailContent({ stats }: { stats: CharacterStats }) {
                 </div>
               );
 
-              if (key !== 'pdef') return [statCard];
+              if (key !== 'pdef' && key !== 'mdef') return [statCard];
 
               return [
                 statCard,
-                <div key="rawDef" className="latest-stat-cell">
-                  <span>Raw DEF</span>
+                <div key={key === 'pdef' ? 'rawDef' : 'rawMdef'} className="latest-stat-cell">
+                  <span>{key === 'pdef' ? 'Raw DEF' : 'Raw MDEF'}</span>
                   <strong>
-                    {formatRawDef(stats.pdef, stats.equipmentPdefPercent)}
+                    {key === 'pdef'
+                      ? formatRawDef(stats.pdef, stats.equipmentPdefPercent)
+                      : formatRawMdef(stats.mdef, stats.equipmentMdefPercent)}
                   </strong>
                 </div>,
               ];

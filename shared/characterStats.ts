@@ -32,6 +32,9 @@ export const CHARACTER_STAT_KEYS = [
 export type CharacterStatKey =
   (typeof CHARACTER_STAT_KEYS)[number];
 
+export type DerivedStatKey = 'rawDef' | 'rawMdef';
+export type FocusStatKey = CharacterStatKey | DerivedStatKey;
+
 export type CharacterStats = Partial<
   Record<CharacterStatKey, number>
 >;
@@ -47,14 +50,14 @@ export interface StatSubmission {
 }
 
 export interface StatCriterion {
-  statKey: CharacterStatKey;
+  statKey: FocusStatKey;
   operator: 'gte' | 'lte';
   target: number;
 }
 
 export interface ClassFocusStatConfig {
   className: string;
-  statKeys: CharacterStatKey[];
+  statKeys: FocusStatKey[];
   criteria?: StatCriterion[];
 }
 
