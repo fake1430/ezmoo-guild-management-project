@@ -15,17 +15,21 @@
 .stats-dashboard-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid #fecaca; border-radius: 12px; color: #b91c1c; background: #fff7f7; }
 .stats-dashboard-error button, .member-stat-card > button { padding: 8px 12px; border: 0; border-radius: 8px; color: #fff; background: #334155; font-weight: 700; }
 .stats-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 14px; }
-.member-stat-card { display: flex; min-height: 280px; flex-direction: column; padding: 16px; border: 1px solid #dbe4f0; border-radius: 16px; background: #fff; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
-.member-stat-card:hover, .member-stat-card:focus-visible { transform: translateY(-2px); border-color: #94a3b8; box-shadow: 0 12px 28px rgb(15 23 42 / 10%); outline: none; }
-.member-stat-card.muted { min-height: 170px; cursor: default; background: #f8fafc; }
-.member-stat-card.muted:hover { transform: none; border-color: #dbe4f0; box-shadow: none; }
-.member-stat-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+.member-stat-card { --member-class-color: #64748b; display: flex; min-height: 280px; flex-direction: column; padding: 16px; border: 1px solid color-mix(in srgb, var(--member-class-color) 24%, #dbe4f0); border-top: 4px solid var(--member-class-color); border-radius: 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--member-class-color) 7%, #fff) 0, #fff 112px); box-shadow: 0 5px 16px rgb(15 23 42 / 6%); cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+.member-stat-card:hover, .member-stat-card:focus-visible { transform: translateY(-3px); border-color: color-mix(in srgb, var(--member-class-color) 52%, #cbd5e1); border-top-color: var(--member-class-color); box-shadow: 0 14px 30px color-mix(in srgb, var(--member-class-color) 13%, transparent); outline: none; }
+.member-stat-card.muted { min-height: 170px; cursor: default; background: linear-gradient(180deg, color-mix(in srgb, var(--member-class-color) 5%, #f8fafc), #f8fafc 100px); }
+.member-stat-card.muted:hover { transform: none; border-color: color-mix(in srgb, var(--member-class-color) 24%, #dbe4f0); border-top-color: var(--member-class-color); box-shadow: 0 5px 16px rgb(15 23 42 / 6%); }
+.member-stat-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--member-class-color) 22%, #e2e8f0); }
 .member-stat-card > header > div { display: grid; min-width: 0; gap: 7px; }
-.member-stat-card h3 { overflow: hidden; margin: 0; color: #0f172a; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.member-stat-card h3 { overflow: hidden; margin: 0; color: #0f172a; font-size: 19px; font-weight: 800; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
 .member-stat-card time { max-width: 92px; color: #64748b; font-size: 11px; line-height: 1.4; text-align: right; }
-.stats-class-badge { width: fit-content; max-width: 100%; overflow: hidden; padding: 4px 8px; border-radius: 999px; color: #fff; background: #64748b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.stats-class-badge { width: fit-content; max-width: 100%; overflow: hidden; padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--member-class-color) 38%, transparent); border-radius: 999px; color: color-mix(in srgb, var(--member-class-color) 78%, #0f172a); background: color-mix(in srgb, var(--member-class-color) 13%, #fff); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .member-stat-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 12px 0; }
-.member-stat-summary > div { display: grid; min-width: 0; gap: 3px; padding: 7px 8px; border-radius: 8px; background: #f8fafc; }
+.member-stat-summary > div { display: grid; min-width: 0; gap: 3px; padding: 8px 9px; border: 1px solid #e7edf4; border-radius: 9px; background: #f8fafc; transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
+.member-stat-card:hover .member-stat-summary > div { border-color: color-mix(in srgb, var(--member-class-color) 18%, #e2e8f0); background: color-mix(in srgb, var(--member-class-color) 3%, #f8fafc); }
+.member-stat-summary > div:hover { transform: translateY(-1px); }
+.member-stat-summary > div.derived-stat { border-color: color-mix(in srgb, var(--member-class-color) 26%, #dbe4f0); background: color-mix(in srgb, var(--member-class-color) 7%, #f8fafc); }
+.member-stat-summary > div.derived-stat span { color: color-mix(in srgb, var(--member-class-color) 70%, #334155); font-weight: 800; }
 .member-stat-summary span, .member-stat-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .member-stat-summary span { color: #64748b; font-size: 11px; }
 .member-stat-summary strong { color: #0f172a; font-size: 14px; }
@@ -33,7 +37,8 @@
 .member-stat-summary .criterion-below { color: #dc2626; }
 .member-stat-summary .criterion-undefined { color: #94a3b8; }
 .member-criteria-summary { margin: -5px 0 10px; color: #475569; font-size: 12px; font-weight: 700; text-align: right; }
-.member-stat-card > button { width: 100%; margin-top: auto; cursor: pointer; }
+.member-stat-card > button { width: 100%; margin-top: auto; border: 1px solid color-mix(in srgb, var(--member-class-color) 28%, #334155); background: #334155; box-shadow: inset 3px 0 0 var(--member-class-color); cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
+.member-stat-card > button:hover, .member-stat-card > button:focus-visible { border-color: var(--member-class-color); background: color-mix(in srgb, var(--member-class-color) 24%, #334155); box-shadow: inset 4px 0 0 var(--member-class-color); outline: none; }
 .member-stat-missing { display: grid; flex: 1; place-items: center; color: #94a3b8; font-size: 13px; }
 .stats-dashboard-empty { display: grid; min-height: 280px; place-items: center; padding: 30px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; background: #f8fafc; text-align: center; }
 .stats-card-skeleton { min-height: 280px; cursor: default; background: linear-gradient(100deg, #f1f5f9 30%, #fff 50%, #f1f5f9 70%); background-size: 220% 100%; animation: stats-skeleton 1.4s infinite linear; }

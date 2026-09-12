@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { toBlob } from 'html-to-image';
+import { getClassColor } from '../../constants/classColors';
 import {
   getLatestGuildStats,
   getStatFocusConfig,
@@ -473,7 +475,11 @@ export function StatsDashboardPage({
         <section className="stats-card-grid">
           {filteredMembers.map((member) => {
             const submission = latestByMember.get(member.memberId) ?? null;
-            const focusConfig = focusConfigByClass.get(memberClass(member));
+            const memberClassName = memberClass(member);
+            const focusConfig = focusConfigByClass.get(memberClassName);
+            const cardStyle = {
+              '--member-class-color': getClassColor(memberClassName),
+            } as CSSProperties;
             const summaryFields = submission && focusConfig
               ? focusConfig.statKeys.map((key) => ({ key, label: getStatLabel(key) }))
               : submission
@@ -502,6 +508,7 @@ export function StatsDashboardPage({
               <article
                 key={member.memberId}
                 className={`member-stat-card${submission ? '' : ' muted'}`}
+                style={cardStyle}
                 role={submission ? 'button' : undefined}
                 tabIndex={submission ? 0 : undefined}
                 onClick={() => submission && setModalMember(member)}
@@ -512,7 +519,7 @@ export function StatsDashboardPage({
                   }
                 }}
               >
-                <header><div><h3>{member.ign}</h3><span className="stats-class-badge">{memberClass(member)}</span></div>{submission && <time>{formatSubmittedAt(submission.submittedAt)}</time>}</header>
+                <header><div><h3>{member.ign}</h3><span className="stats-class-badge">{memberClassName}</span></div>{submission && <time>{formatSubmittedAt(submission.submittedAt)}</time>}</header>
                 {submission ? (
                   <>
                     <div className="member-stat-summary">
@@ -525,7 +532,10 @@ export function StatsDashboardPage({
                             : actual <= criterion.target
                           : null;
                         return (
-                          <div key={field.key}>
+                          <div
+                            key={field.key}
+                            className={field.key === 'rawDef' || field.key === 'rawMdef' ? 'derived-stat' : undefined}
+                          >
                             <span>{field.label}</span>
                             <strong className={actual === undefined ? 'criterion-undefined' : met === true ? 'criterion-met' : met === false ? 'criterion-below' : ''}>
                               {formatFocusStatValue(submission.stats, field.key)}
