@@ -42,3 +42,17 @@ export function formatStatValue(
   }).format(value);
   return `${formatted}${PERCENT_KEYS.has(key) ? '%' : ''}`;
 }
+
+export function formatRawDef(
+  pdef: number | null | undefined,
+  equipmentPdefPercent: number | null | undefined,
+): string {
+  if (pdef == null || equipmentPdefPercent == null) return '—';
+
+  const rawDef = (pdef - 140) / (1 + equipmentPdefPercent / 100);
+  if (!Number.isFinite(rawDef)) return '—';
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+  }).format(rawDef);
+}
