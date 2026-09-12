@@ -26,10 +26,7 @@
 .stats-class-badge { width: fit-content; max-width: 100%; overflow: hidden; padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--member-class-color) 38%, transparent); border-radius: 999px; color: color-mix(in srgb, var(--member-class-color) 78%, #0f172a); background: color-mix(in srgb, var(--member-class-color) 13%, #fff); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .member-stat-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 12px 0; }
 .member-stat-summary > div { display: grid; min-width: 0; gap: 3px; padding: 8px 9px; border: 1px solid #e7edf4; border-radius: 9px; background: #f8fafc; transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
-.member-stat-card:hover .member-stat-summary > div { border-color: color-mix(in srgb, var(--member-class-color) 18%, #e2e8f0); background: color-mix(in srgb, var(--member-class-color) 3%, #f8fafc); }
-.member-stat-summary > div:hover { transform: translateY(-1px); }
-.member-stat-summary > div.derived-stat { border-color: color-mix(in srgb, var(--member-class-color) 26%, #dbe4f0); background: color-mix(in srgb, var(--member-class-color) 7%, #f8fafc); }
-.member-stat-summary > div.derived-stat span { color: color-mix(in srgb, var(--member-class-color) 70%, #334155); font-weight: 800; }
+.member-stat-summary > div:hover { border-color: #cbd5e1; background: #f1f5f9; transform: translateY(-1px); }
 .member-stat-summary span, .member-stat-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .member-stat-summary span { color: #64748b; font-size: 11px; }
 .member-stat-summary strong { color: #0f172a; font-size: 14px; }
@@ -37,8 +34,8 @@
 .member-stat-summary .criterion-below { color: #dc2626; }
 .member-stat-summary .criterion-undefined { color: #94a3b8; }
 .member-criteria-summary { margin: -5px 0 10px; color: #475569; font-size: 12px; font-weight: 700; text-align: right; }
-.member-stat-card > button { width: 100%; margin-top: auto; border: 1px solid color-mix(in srgb, var(--member-class-color) 28%, #334155); background: #334155; box-shadow: inset 3px 0 0 var(--member-class-color); cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
-.member-stat-card > button:hover, .member-stat-card > button:focus-visible { border-color: var(--member-class-color); background: color-mix(in srgb, var(--member-class-color) 24%, #334155); box-shadow: inset 4px 0 0 var(--member-class-color); outline: none; }
+.member-stat-card > button { width: 100%; margin-top: auto; border: 1px solid #334155; background: #334155; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease; }
+.member-stat-card > button:hover, .member-stat-card > button:focus-visible { border-color: #1e293b; background: #1e293b; outline: none; }
 .member-stat-missing { display: grid; flex: 1; place-items: center; color: #94a3b8; font-size: 13px; }
 .stats-dashboard-empty { display: grid; min-height: 280px; place-items: center; padding: 30px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; background: #f8fafc; text-align: center; }
 .stats-card-skeleton { min-height: 280px; cursor: default; background: linear-gradient(100deg, #f1f5f9 30%, #fff 50%, #f1f5f9 70%); background-size: 220% 100%; animation: stats-skeleton 1.4s infinite linear; }

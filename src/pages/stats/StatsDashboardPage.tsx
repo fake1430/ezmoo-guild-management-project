@@ -532,10 +532,7 @@ export function StatsDashboardPage({
                             : actual <= criterion.target
                           : null;
                         return (
-                          <div
-                            key={field.key}
-                            className={field.key === 'rawDef' || field.key === 'rawMdef' ? 'derived-stat' : undefined}
-                          >
+                          <div key={field.key}>
                             <span>{field.label}</span>
                             <strong className={actual === undefined ? 'criterion-undefined' : met === true ? 'criterion-met' : met === false ? 'criterion-below' : ''}>
                               {formatFocusStatValue(submission.stats, field.key)}
