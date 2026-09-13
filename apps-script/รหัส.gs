@@ -15,6 +15,9 @@ const SHEETS = {
 
 
 const OVERRUN_QUEUE_SIZE = 12;
+const MEMBERS_CACHE_KEY = 'api:members:v1';
+const MEMBERS_CACHE_TTL_SECONDS = 300;
+const PARTY_CACHE_TTL_SECONDS = 120;
 
 const ATTENDANCE_HEADERS = [
   'AttendanceID',
@@ -122,7 +125,9 @@ if (discordLinkResult.handled) {
       case 'members':
         return jsonResponse({
           success: true,
-          data: getMembers(),
+          data: getMembers(
+            isForceRefresh_(e.parameter.forceRefresh),
+          ),
         });
 
       case 'classes':
@@ -140,7 +145,10 @@ if (discordLinkResult.handled) {
 
         return jsonResponse({
           success: true,
-          data: getPartyData(sheetName),
+          data: getPartyData(
+            sheetName,
+            isForceRefresh_(e.parameter.forceRefresh),
+          ),
         });
       }
 
@@ -327,7 +335,11 @@ switch (action) {
    MEMBER
 ========================================================= */
 
-function getMembers() {
+function getMembers(forceRefresh) {
+  if (!forceRefresh) {
+    const cachedMembers = readJsonCache_(MEMBERS_CACHE_KEY);
+    if (cachedMembers) return cachedMembers;
+  }
   const sheet = getRequiredSheet(
     SHEETS.MEMBERS,
   );
@@ -370,7 +382,7 @@ function getMembers() {
       'overrunclass',
     ]);
 
-  return values
+  const members = values
     .slice(1)
     .filter(function (row) {
       return String(
@@ -396,6 +408,8 @@ function getMembers() {
         ).trim(),
       };
     });
+  writeJsonCache_(MEMBERS_CACHE_KEY, members, MEMBERS_CACHE_TTL_SECONDS);
+  return members;
 }
 
 /* =========================================================
@@ -482,7 +496,12 @@ function handleSaveParty(payload) {
   });
 }
 
-function getPartyData(sheetName) {
+function getPartyData(sheetName, forceRefresh) {
+  const cacheKey = partyCacheKey_(sheetName);
+  if (!forceRefresh) {
+    const cachedParties = readJsonCache_(cacheKey);
+    if (cachedParties) return cachedParties;
+  }
   const sheet =
     getRequiredSheet(sheetName);
 
@@ -514,7 +533,7 @@ function getPartyData(sheetName) {
     ]);
   });
 
-  return values
+  const parties = values
     .slice(1)
     .filter(function (row) {
       const partyNumber = String(
@@ -548,6 +567,8 @@ function getPartyData(sheetName) {
         ),
       };
     });
+  writeJsonCache_(cacheKey, parties, PARTY_CACHE_TTL_SECONDS);
+  return parties;
 }
 
 function savePartyData(
@@ -622,6 +643,7 @@ function savePartyData(
       1,
       headers.length,
     );
+    removeJsonCache_(partyCacheKey_(sheetName));
   } finally {
     lock.releaseLock();
   }
@@ -3337,4 +3359,42 @@ function jsonResponse(data) {
     .setMimeType(
       ContentService.MimeType.JSON,
     );
+}
+
+function isForceRefresh_(value) {
+  return String(value || '').trim() === '1';
+}
+
+function partyCacheKey_(sheetName) {
+  return 'api:party:' + sheetName + ':v1';
+}
+
+function readJsonCache_(key) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cached = cache.get(key);
+    if (!cached) return null;
+    return JSON.parse(cached);
+  } catch (error) {
+    console.warn('Cache read failed for ' + key + ': ' + getErrorMessage(error));
+    return null;
+  }
+}
+
+function writeJsonCache_(key, value, ttlSeconds) {
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized.length > 90000) return;
+    CacheService.getScriptCache().put(key, serialized, ttlSeconds);
+  } catch (error) {
+    console.warn('Cache write failed for ' + key + ': ' + getErrorMessage(error));
+  }
+}
+
+function removeJsonCache_(key) {
+  try {
+    CacheService.getScriptCache().remove(key);
+  } catch (error) {
+    console.warn('Cache invalidation failed for ' + key + ': ' + getErrorMessage(error));
+  }
 }

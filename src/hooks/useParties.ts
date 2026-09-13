@@ -12,12 +12,17 @@ interface UsePartiesResult {
 
 export function useParties(
   mode: PartyMode,
+  enabled = true,
 ): UsePartiesResult {
   const [parties, setParties] = useState<Party[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const loadParties = useCallback(async (): Promise<void> => {
+  const loadParties = useCallback(async (forceRefresh = false): Promise<void> => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setErrorMessage('');
@@ -29,7 +34,7 @@ export function useParties(
         ? 'Overrun'
         : 'AuctionParty';
 
-      const data = await getParties(sheetName);
+      const data = await getParties(sheetName, forceRefresh);
       setParties(data);
     } catch (error) {
       const message =
@@ -41,9 +46,11 @@ export function useParties(
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, [enabled, mode]);
 
   useEffect(() => {
+    // Loading remote data is the synchronization performed by this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadParties();
   }, [loadParties]);
 
@@ -51,6 +58,6 @@ export function useParties(
     parties,
     isLoading,
     errorMessage,
-    reloadParties: loadParties,
+    reloadParties: () => loadParties(true),
   };
 }

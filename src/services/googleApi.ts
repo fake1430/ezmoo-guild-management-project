@@ -37,6 +37,24 @@ type ApiResponse<T> =
   | ApiSuccessResponse<T>
   | ApiErrorResponse;
 
+interface RequestOptions {
+  cacheKey?: string;
+  cacheTtlMs?: number;
+  forceRefresh?: boolean;
+}
+
+interface CachedResponse {
+  data: unknown;
+  expiresAt: number;
+}
+
+const GET_RESPONSE_CACHE = new Map<string, CachedResponse>();
+const IN_FLIGHT_GET_REQUESTS = new Map<string, Promise<unknown>>();
+const GET_CACHE_GENERATIONS = new Map<string, number>();
+const MEMBERS_CACHE_TTL_MS = 5 * 60 * 1000;
+const PARTY_CACHE_TTL_MS = 2 * 60 * 1000;
+const STAT_CACHE_TTL_MS = 60 * 1000;
+
 const API_URL =
   import.meta.env.VITE_GOOGLE_API_URL;
 
@@ -49,6 +67,7 @@ if (!API_URL) {
 async function request<T>(
   action: string,
   parameters: Record<string, string> = {},
+  options: RequestOptions = {},
 ): Promise<T> {
   const url = new URL(API_URL);
 
@@ -60,27 +79,66 @@ async function request<T>(
     },
   );
 
-  const response = await fetch(
-    url.toString(),
+  const requestUrl = url.toString();
+  const cacheKey = options.cacheKey ?? requestUrl;
+  if (options.forceRefresh) invalidateGetCache(cacheKey);
+  const cached = GET_RESPONSE_CACHE.get(cacheKey);
+  if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) {
+    return cached.data as T;
+  }
+  if (cached) GET_RESPONSE_CACHE.delete(cacheKey);
+
+  const inFlight = IN_FLIGHT_GET_REQUESTS.get(cacheKey);
+  if (!options.forceRefresh && inFlight) return inFlight as Promise<T>;
+  const cacheGeneration = GET_CACHE_GENERATIONS.get(cacheKey) ?? 0;
+
+  const requestPromise = (async (): Promise<T> => {
+    const response = await fetch(requestUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `เชื่อมต่อ API ไม่สำเร็จ: ${response.status}`,
+      );
+    }
+
+    const result =
+      (await response.json()) as ApiResponse<T>;
+
+    if ('error' in result) {
+      throw new Error(
+        result.error ||
+          'เกิดข้อผิดพลาดจาก API',
+      );
+    }
+
+    if (
+      options.cacheTtlMs
+      && (GET_CACHE_GENERATIONS.get(cacheKey) ?? 0) === cacheGeneration
+    ) {
+      GET_RESPONSE_CACHE.set(cacheKey, {
+        data: result.data,
+        expiresAt: Date.now() + options.cacheTtlMs,
+      });
+    }
+    return result.data;
+  })();
+
+  IN_FLIGHT_GET_REQUESTS.set(cacheKey, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    if (IN_FLIGHT_GET_REQUESTS.get(cacheKey) === requestPromise) {
+      IN_FLIGHT_GET_REQUESTS.delete(cacheKey);
+    }
+  }
+}
+
+function invalidateGetCache(cacheKey: string): void {
+  GET_RESPONSE_CACHE.delete(cacheKey);
+  GET_CACHE_GENERATIONS.set(
+    cacheKey,
+    (GET_CACHE_GENERATIONS.get(cacheKey) ?? 0) + 1,
   );
-
-  if (!response.ok) {
-    throw new Error(
-      `เชื่อมต่อ API ไม่สำเร็จ: ${response.status}`,
-    );
-  }
-
-  const result =
-    (await response.json()) as ApiResponse<T>;
-
-  if ('error' in result) {
-    throw new Error(
-      result.error ||
-        'เกิดข้อผิดพลาดจาก API',
-    );
-  }
-
-  return result.data;
 }
 
 async function postRequest(
@@ -119,8 +177,16 @@ async function postRequest(
   return result.message;
 }
 
-export function getMembers(): Promise<Member[]> {
-  return request<Member[]>('members');
+export function getMembers(forceRefresh = false): Promise<Member[]> {
+  return request<Member[]>(
+    'members',
+    forceRefresh ? { forceRefresh: '1' } : {},
+    {
+      cacheKey: 'members',
+      cacheTtlMs: MEMBERS_CACHE_TTL_MS,
+      forceRefresh,
+    },
+  );
 }
 
 export function getParties(
@@ -128,24 +194,36 @@ export function getParties(
     | 'GuildLeague'
     | 'Overrun'
     | 'AuctionParty',
+  forceRefresh = false,
 ): Promise<Party[]> {
-  return request<Party[]>('party', {
-    sheet: sheetName,
-  });
+  return request<Party[]>(
+    'party',
+    {
+      sheet: sheetName,
+      ...(forceRefresh ? { forceRefresh: '1' } : {}),
+    },
+    {
+      cacheKey: `party:${sheetName}`,
+      cacheTtlMs: PARTY_CACHE_TTL_MS,
+      forceRefresh,
+    },
+  );
 }
 
-export function saveParties(
+export async function saveParties(
   sheetName:
     | 'GuildLeague'
     | 'Overrun'
     | 'AuctionParty',
   parties: Party[],
 ): Promise<string> {
-  return postRequest({
+  const message = await postRequest({
     action: 'saveParty',
     sheet: sheetName,
     parties,
   });
+  invalidateGetCache(`party:${sheetName}`);
+  return message;
 }
 
 export function getAttendance(
@@ -323,26 +401,44 @@ export function getLatestMemberStats(
   );
 }
 
-export function getLatestGuildStats(): Promise<StatSubmission[]> {
-  return request<StatSubmission[]>('getLatestGuildStats');
+export function getLatestGuildStats(forceRefresh = false): Promise<StatSubmission[]> {
+  return request<StatSubmission[]>(
+    'getLatestGuildStats',
+    forceRefresh ? { forceRefresh: '1' } : {},
+    {
+      cacheKey: 'latestGuildStats',
+      cacheTtlMs: STAT_CACHE_TTL_MS,
+      forceRefresh,
+    },
+  );
 }
 
-export function getStatFocusConfig(): Promise<ClassFocusStatConfig[]> {
-  return request<ClassFocusStatConfig[]>('getStatFocusConfig');
+export function getStatFocusConfig(forceRefresh = false): Promise<ClassFocusStatConfig[]> {
+  return request<ClassFocusStatConfig[]>(
+    'getStatFocusConfig',
+    forceRefresh ? { forceRefresh: '1' } : {},
+    {
+      cacheKey: 'statFocusConfig',
+      cacheTtlMs: MEMBERS_CACHE_TTL_MS,
+      forceRefresh,
+    },
+  );
 }
 
-export function saveStatFocusConfig(
+export async function saveStatFocusConfig(
   config: ClassFocusStatConfig,
 ): Promise<string> {
-  return postRequest({
+  const message = await postRequest({
     action: 'saveStatFocusConfig',
     className: config.className,
     statKeys: config.statKeys,
     criteria: config.criteria ?? [],
   });
+  invalidateGetCache('statFocusConfig');
+  return message;
 }
 
-export function saveStatSubmission(
+export async function saveStatSubmission(
   submission: {
     memberId: string;
     ign: string;
@@ -351,8 +447,10 @@ export function saveStatSubmission(
     stats: CharacterStats;
   },
 ): Promise<string> {
-  return postRequest({
+  const message = await postRequest({
     action: 'saveStatSubmission',
     ...submission,
   });
+  invalidateGetCache('latestGuildStats');
+  return message;
 }

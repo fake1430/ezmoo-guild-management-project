@@ -14,12 +14,12 @@ export function useMembers(): UseMembersResult {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  async function loadMembers(): Promise<void> {
+  async function loadMembers(forceRefresh = false): Promise<void> {
     try {
       setIsLoading(true);
       setErrorMessage('');
 
-      const data = await getMembers();
+      const data = await getMembers(forceRefresh);
       setMembers(data);
     } catch (error) {
       const message =
@@ -34,6 +34,8 @@ export function useMembers(): UseMembersResult {
   }
 
   useEffect(() => {
+    // Loading remote data is the synchronization performed by this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadMembers();
   }, []);
 
@@ -41,6 +43,6 @@ export function useMembers(): UseMembersResult {
     members,
     isLoading,
     errorMessage,
-    reloadMembers: loadMembers,
+    reloadMembers: () => loadMembers(true),
   };
 }

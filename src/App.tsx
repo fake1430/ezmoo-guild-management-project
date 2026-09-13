@@ -38,6 +38,7 @@ function pageFromPath(): AppPage {
 function App() {
   const [currentPage, setCurrentPage] =
     useState<AppPage>(pageFromPath);
+  const isPartyPage = currentPage === 'partyBuilder';
 
   const [mode, setMode] =
     useState<PartyMode>('guildLeague');
@@ -74,9 +75,10 @@ function App() {
     isLoading: isLoadingParties,
     errorMessage: partyErrorMessage,
     reloadParties,
-  } = useParties(mode);
+  } = useParties(mode, isPartyPage);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditableParties(
       parties.map((party) => ({
         ...party,
@@ -420,9 +422,6 @@ function App() {
       },
     );
   }
-
-  const isPartyPage =
-    currentPage === 'partyBuilder';
 
   return (
     <div className="app">

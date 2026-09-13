@@ -123,34 +123,23 @@ export function StatsDashboardPage({
     members.map(memberClass).filter((value) => value !== 'ไม่ระบุอาชีพ'),
   )).sort((first, second) => first.localeCompare(second, 'th')), [members]);
 
-  async function loadGuildStats(): Promise<void> {
+  async function loadGuildStats(forceRefresh = false): Promise<void> {
     const generation = loadGenerationRef.current + 1;
     loadGenerationRef.current = generation;
-    console.info(`[Stats Dashboard] members loaded=${members.length}`);
-
-    if (members.length === 0) {
-      setLatestByMember(new Map());
-      setIsLoadingStats(false);
-      return;
-    }
-
     setIsLoadingStats(true);
     setStatErrorMessage('');
 
     try {
       const [latestStats, focusConfigs] = await Promise.all([
-        getLatestGuildStats(),
-        getStatFocusConfig(),
+        getLatestGuildStats(forceRefresh),
+        getStatFocusConfig(forceRefresh),
       ]);
       console.info(
         `[Stats Dashboard] latest guild stats loaded=${latestStats.length}`,
       );
-      const memberIds = new Set(members.map((member) => member.memberId));
       const nextLatestByMember = new Map<string, StatSubmission>();
       latestStats.forEach((submission) => {
-        if (memberIds.has(submission.memberId)) {
-          nextLatestByMember.set(submission.memberId, submission);
-        }
+        nextLatestByMember.set(submission.memberId, submission);
       });
       const nextFocusConfig = new Map<string, ClassFocusStatConfig>(
         focusConfigs.map((config) => [config.className, config]),
@@ -160,7 +149,7 @@ export function StatsDashboardPage({
         setLatestByMember(nextLatestByMember);
         setFocusConfigByClass(nextFocusConfig);
         console.info(
-          `[Stats Dashboard] merge done withStats=${nextLatestByMember.size} withoutStats=${members.length - nextLatestByMember.size}`,
+          `[Stats Dashboard] indexed latest stats=${nextLatestByMember.size}`,
         );
       }
     } catch (error) {
@@ -179,12 +168,11 @@ export function StatsDashboardPage({
   useEffect(() => {
     // Loading remote data is the synchronization performed by this effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!isLoadingMembers && !memberErrorMessage) void loadGuildStats();
+    void loadGuildStats();
     return () => {
       loadGenerationRef.current += 1;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [members, isLoadingMembers, memberErrorMessage]);
+  }, []);
 
   useEffect(() => {
     if (!modalMember && !isFocusModalOpen && !isCriteriaModalOpen) return undefined;
@@ -460,7 +448,7 @@ export function StatsDashboardPage({
         <section className="stats-dashboard-error"><span>{memberErrorMessage}</span><button type="button" onClick={() => void onReloadMembers()}>ลองใหม่</button></section>
       )}
       {statErrorMessage && (
-        <section className="stats-dashboard-error"><span>{statErrorMessage}</span><button type="button" onClick={() => void loadGuildStats()}>ลองใหม่</button></section>
+        <section className="stats-dashboard-error"><span>{statErrorMessage}</span><button type="button" onClick={() => void loadGuildStats(true)}>ลองใหม่</button></section>
       )}
 
       {loadingDashboard ? (

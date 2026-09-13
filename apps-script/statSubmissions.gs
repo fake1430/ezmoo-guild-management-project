@@ -28,6 +28,10 @@ const STAT_FOCUS_CONFIG_HEADERS = [
   'className', 'statKeysJson', 'criteriaJson', 'updatedAt',
 ];
 const MAX_FOCUS_STATS = 10;
+const LATEST_GUILD_STATS_CACHE_KEY = 'api:latest-guild-stats:v1';
+const STAT_FOCUS_CONFIG_CACHE_KEY = 'api:stat-focus-config:v1';
+const LATEST_GUILD_STATS_CACHE_TTL_SECONDS = 60;
+const STAT_FOCUS_CONFIG_CACHE_TTL_SECONDS = 300;
 
 function handleStatGetAction(action, parameters) {
   if (action === 'getMemberStatSubmissions') {
@@ -45,13 +49,13 @@ function handleStatGetAction(action, parameters) {
   if (action === 'getLatestGuildStats') {
     return {
       handled: true,
-      data: getLatestGuildStats_(),
+      data: getLatestGuildStats_(isForceRefresh_(parameters.forceRefresh)),
     };
   }
   if (action === 'getStatFocusConfig') {
     return {
       handled: true,
-      data: getStatFocusConfig_(),
+      data: getStatFocusConfig_(isForceRefresh_(parameters.forceRefresh)),
     };
   }
   return { handled: false };
@@ -124,6 +128,7 @@ function saveStatSubmission_(body) {
       submission.submittedAt,
       JSON.stringify(submission.stats),
     ]);
+    removeJsonCache_(LATEST_GUILD_STATS_CACHE_KEY);
   } finally {
     lock.releaseLock();
   }
@@ -147,7 +152,11 @@ function getLatestMemberStats_(memberId) {
   return history.length ? history[0] : null;
 }
 
-function getLatestGuildStats_() {
+function getLatestGuildStats_(forceRefresh) {
+  if (!forceRefresh) {
+    const cachedStats = readJsonCache_(LATEST_GUILD_STATS_CACHE_KEY);
+    if (cachedStats) return cachedStats;
+  }
   const sheet = getStatSheet_();
   if (sheet.getLastRow() < 2) return [];
 
@@ -178,9 +187,15 @@ function getLatestGuildStats_() {
     }
   });
 
-  return Object.keys(latestByMemberId).map(function (memberId) {
+  const latestStats = Object.keys(latestByMemberId).map(function (memberId) {
     return latestByMemberId[memberId].submission;
   });
+  writeJsonCache_(
+    LATEST_GUILD_STATS_CACHE_KEY,
+    latestStats,
+    LATEST_GUILD_STATS_CACHE_TTL_SECONDS,
+  );
+  return latestStats;
 }
 
 function statRowToObject_(row) {
@@ -195,11 +210,15 @@ function statRowToObject_(row) {
   };
 }
 
-function getStatFocusConfig_() {
+function getStatFocusConfig_(forceRefresh) {
+  if (!forceRefresh) {
+    const cachedConfig = readJsonCache_(STAT_FOCUS_CONFIG_CACHE_KEY);
+    if (cachedConfig) return cachedConfig;
+  }
   const sheet = getStatFocusConfigSheet_();
   if (sheet.getLastRow() < 2) return [];
 
-  return sheet
+  const config = sheet
     .getRange(2, 1, sheet.getLastRow() - 1, STAT_FOCUS_CONFIG_HEADERS.length)
     .getValues()
     .filter(function (row) { return String(row[0]).trim(); })
@@ -214,6 +233,12 @@ function getStatFocusConfig_() {
         ),
       };
     });
+  writeJsonCache_(
+    STAT_FOCUS_CONFIG_CACHE_KEY,
+    config,
+    STAT_FOCUS_CONFIG_CACHE_TTL_SECONDS,
+  );
+  return config;
 }
 
 function saveStatFocusConfig_(body) {
@@ -246,6 +271,7 @@ function saveStatFocusConfig_(body) {
     ]];
     if (targetRow === -1) sheet.appendRow(values[0]);
     else sheet.getRange(targetRow, 1, 1, values[0].length).setValues(values);
+    removeJsonCache_(STAT_FOCUS_CONFIG_CACHE_KEY);
   } finally {
     lock.releaseLock();
   }
