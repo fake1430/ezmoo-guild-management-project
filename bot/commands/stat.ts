@@ -60,6 +60,7 @@ export async function runStatCommand(
   );
   const sessionId = crypto.randomUUID();
   const pending: PendingStatSubmission = {
+    submissionId: sessionId,
     memberId: member.memberId,
     ign: member.ign,
     submittedByDiscordId: interaction.user.id,

@@ -78,6 +78,7 @@ function handleStatPostAction(action, body) {
 }
 
 function saveStatSubmission_(body) {
+  const requestedSubmissionId = optionalString_(body.submissionId);
   const memberId = requiredString_(body.memberId, 'memberId');
   const discordId = requiredString_(body.submittedByDiscordId, 'submittedByDiscordId');
   const member = findMemberById_(memberId);
@@ -87,7 +88,7 @@ function saveStatSubmission_(body) {
   if (Object.keys(stats).length === 0) throw new Error('At least one valid stat is required');
 
   const submission = {
-    id: Utilities.getUuid(),
+    id: requestedSubmissionId || Utilities.getUuid(),
     memberId: member.memberId,
     ign: member.ign,
     submittedByDiscordId: discordId,
@@ -100,6 +101,20 @@ function saveStatSubmission_(body) {
   lock.waitLock(30000);
   try {
     const sheet = getStatSheet_();
+    // The bot reuses this ID for every retry. Keep the lookup and append under
+    // the same script lock so concurrent attempts cannot create duplicate rows.
+    if (requestedSubmissionId && sheet.getLastRow() >= 2) {
+      const existingIdCell = sheet
+        .getRange(2, 1, sheet.getLastRow() - 1, 1)
+        .createTextFinder(requestedSubmissionId)
+        .matchEntireCell(true)
+        .findNext();
+      if (existingIdCell) {
+        return statRowToObject_(
+          sheet.getRange(existingIdCell.getRow(), 1, 1, STAT_HEADERS.length).getValues()[0],
+        );
+      }
+    }
     sheet.appendRow([
       submission.id,
       submission.memberId,

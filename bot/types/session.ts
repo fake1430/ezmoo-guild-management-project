@@ -4,6 +4,7 @@ import type {
 } from '../../shared/characterStats.js';
 
 export interface PendingStatSubmission {
+  submissionId: string;
   memberId: string;
   ign: string;
   submittedByDiscordId: string;

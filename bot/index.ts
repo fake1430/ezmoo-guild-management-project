@@ -78,6 +78,7 @@ process.on('uncaughtException', (error) => {
 });
 
 const sessions = new Map<string, PendingStatSubmission>();
+const submittingSessions = new Set<string>();
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000;
 const client = new Client({
@@ -312,16 +313,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
     if (action === 'confirm') {
-      await interaction.deferUpdate();
-      await saveStatSubmission({
-        memberId: pending.memberId,
-        ign: pending.ign,
-        submittedByDiscordId: pending.submittedByDiscordId,
-        submittedByDiscordName: pending.submittedByDiscordName,
-        stats: pending.stats,
-      });
-      sessions.delete(sessionId);
-      await interaction.editReply({ content: `บันทึก stat ใหม่ของ **${pending.ign}** เรียบร้อยแล้ว`, components: [] });
+      if (submittingSessions.has(sessionId)) {
+        await interaction.reply({
+          content: 'กำลังบันทึก stat รายการนี้อยู่',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      submittingSessions.add(sessionId);
+      try {
+        await interaction.deferUpdate();
+        await saveStatSubmission({
+          submissionId: pending.submissionId,
+          memberId: pending.memberId,
+          ign: pending.ign,
+          submittedByDiscordId: pending.submittedByDiscordId,
+          submittedByDiscordName: pending.submittedByDiscordName,
+          stats: pending.stats,
+        });
+        sessions.delete(sessionId);
+        await interaction.editReply({ content: `บันทึก stat ใหม่ของ **${pending.ign}** เรียบร้อยแล้ว`, components: [] });
+      } finally {
+        submittingSessions.delete(sessionId);
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
