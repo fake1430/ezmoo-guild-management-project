@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { toBlob } from 'html-to-image';
 import { getClassColor } from '../../constants/classColors';
@@ -17,15 +17,17 @@ import type {
 import type { Member } from '../../types/member';
 import { StatDetailContent } from './StatDetailContent';
 import {
-  COMPARISON_COLOR_OPTIONS,
+  COMPARISON_EVALUATIONS_STORAGE_KEY,
   COMPARISON_LAYOUT_STORAGE_KEY,
   COMPARISON_STAT_GROUPS,
   LEGACY_COMPARISON_LAYOUT_STORAGE_KEY,
-  type ComparisonColumnColor,
+  type ComparisonCellStatus,
+  type ComparisonEvaluations,
   type ComparisonLayout,
   type ComparisonStatKey,
   getComparisonLayoutKey,
   getDefaultComparisonLayout,
+  parseComparisonEvaluations,
   parseComparisonLayouts,
 } from './comparisonStatConfig';
 import {
@@ -50,6 +52,7 @@ interface ComparisonSort {
   key: 'ign' | ComparisonStatKey;
   direction: ComparisonSortDirection;
 }
+interface ComparisonCellPosition { row: number; column: number }
 interface CardSummaryField { key: FocusStatKey; label: string }
 interface DraftCriterion {
   operator: StatCriterion['operator'];
@@ -133,9 +136,16 @@ export function StatsDashboardPage({
   const [isStatPickerOpen, setIsStatPickerOpen] = useState(false);
   const [statPickerSearch, setStatPickerSearch] = useState('');
   const [copyLayoutSource, setCopyLayoutSource] = useState('all');
-  const [colorPickerStatKey, setColorPickerStatKey] = useState<ComparisonStatKey | null>(null);
   const [draggedStatKey, setDraggedStatKey] = useState<ComparisonStatKey | null>(null);
   const [dropTargetStatKey, setDropTargetStatKey] = useState<ComparisonStatKey | null>(null);
+  const [selectedComparisonCells, setSelectedComparisonCells] = useState<Set<string>>(new Set());
+  const [comparisonEvaluations, setComparisonEvaluations] = useState<ComparisonEvaluations>(() => {
+    try {
+      return parseComparisonEvaluations(window.localStorage.getItem(COMPARISON_EVALUATIONS_STORAGE_KEY));
+    } catch {
+      return {};
+    }
+  });
   const [onlyWithStats, setOnlyWithStats] = useState(true);
   const [latestByMember, setLatestByMember] = useState<Map<string, StatSubmission | null>>(new Map());
   const [focusConfigByClass, setFocusConfigByClass] = useState<Map<string, ClassFocusStatConfig>>(new Map());
@@ -155,6 +165,8 @@ export function StatsDashboardPage({
   const [dashboardNow] = useState(() => Date.now());
   const loadGenerationRef = useRef(0);
   const criteriaCaptureRef = useRef<HTMLDivElement>(null);
+  const comparisonSelectionAnchorRef = useRef<ComparisonCellPosition | null>(null);
+  const isSelectingComparisonCellsRef = useRef(false);
 
   const classOptions = useMemo(() => Array.from(new Set(
     members.map(memberClass).filter((value) => value !== 'ไม่ระบุอาชีพ'),
@@ -487,18 +499,8 @@ export function StatsDashboardPage({
 
   function removeComparisonColumn(key: ComparisonStatKey): void {
     if (comparisonColumns.length === 1) return;
-    const columnColors = { ...comparisonLayout.columnColors };
-    delete columnColors[key];
-    saveComparisonLayout({ statKeys: comparisonColumns.filter((columnKey) => columnKey !== key), columnColors });
+    saveComparisonLayout({ statKeys: comparisonColumns.filter((columnKey) => columnKey !== key) });
     if (comparisonSort?.key === key) setComparisonSort(null);
-  }
-
-  function setComparisonColumnColor(key: ComparisonStatKey, color: ComparisonColumnColor | null): void {
-    const columnColors = { ...comparisonLayout.columnColors };
-    if (color) columnColors[key] = color;
-    else delete columnColors[key];
-    saveComparisonLayout({ ...comparisonLayout, columnColors });
-    setColorPickerStatKey(null);
   }
 
   function resetComparisonColumns(): void {
@@ -512,7 +514,7 @@ export function StatsDashboardPage({
   function copyComparisonLayout(): void {
     const sourceKey = getComparisonLayoutKey(copyLayoutSource);
     const sourceLayout = comparisonLayouts[sourceKey] ?? getDefaultComparisonLayout(copyLayoutSource);
-    saveComparisonLayout({ statKeys: [...sourceLayout.statKeys], columnColors: { ...sourceLayout.columnColors } });
+    saveComparisonLayout({ statKeys: [...sourceLayout.statKeys] });
     setComparisonSort(null);
   }
 
@@ -527,12 +529,53 @@ export function StatsDashboardPage({
     saveComparisonLayout({ ...comparisonLayout, statKeys: nextColumns });
   }
 
-  function comparisonColumnStyle(key: ComparisonStatKey): CSSProperties | undefined {
-    const color = comparisonLayout.columnColors[key];
-    if (!color) return undefined;
-    const hex = COMPARISON_COLOR_OPTIONS.find((option) => option.value === color)?.hex;
-    return hex ? { '--comparison-column-color': hex } as CSSProperties : undefined;
+  function comparisonCellId(memberId: string, statKey: ComparisonStatKey): string {
+    return JSON.stringify([memberId, statKey]);
   }
+
+  function selectComparisonRange(anchor: ComparisonCellPosition, target: ComparisonCellPosition): void {
+    const rowStart = Math.min(anchor.row, target.row);
+    const rowEnd = Math.max(anchor.row, target.row);
+    const columnStart = Math.min(anchor.column, target.column);
+    const columnEnd = Math.max(anchor.column, target.column);
+    const selected = new Set<string>();
+    for (let row = rowStart; row <= rowEnd; row += 1) {
+      for (let column = columnStart; column <= columnEnd; column += 1) {
+        const member = comparisonMembers[row];
+        const statKey = comparisonColumns[column];
+        if (member && statKey) selected.add(comparisonCellId(member.memberId, statKey));
+      }
+    }
+    setSelectedComparisonCells(selected);
+  }
+
+  const visibleComparisonCellIds = new Set(
+    comparisonMembers.flatMap((member) => comparisonColumns.map((key) => comparisonCellId(member.memberId, key))),
+  );
+  const visibleSelectedComparisonCells = [...selectedComparisonCells].filter((id) => visibleComparisonCellIds.has(id));
+
+  function persistComparisonEvaluations(evaluations: ComparisonEvaluations): void {
+    try {
+      window.localStorage.setItem(COMPARISON_EVALUATIONS_STORAGE_KEY, JSON.stringify(evaluations));
+    } catch {
+      // Manual evaluations remain usable for this session when storage is unavailable.
+    }
+  }
+
+  const applyComparisonStatus = useCallback((status: ComparisonCellStatus | null): void => {
+    if (visibleSelectedComparisonCells.length === 0) return;
+    const nextEvaluations: ComparisonEvaluations = { ...comparisonEvaluations };
+    visibleSelectedComparisonCells.forEach((id) => {
+      const [memberId, statKey] = JSON.parse(id) as [string, ComparisonStatKey];
+      const memberEvaluation = { ...nextEvaluations[memberId] };
+      if (status) memberEvaluation[statKey] = status;
+      else delete memberEvaluation[statKey];
+      if (Object.keys(memberEvaluation).length > 0) nextEvaluations[memberId] = memberEvaluation;
+      else delete nextEvaluations[memberId];
+    });
+    setComparisonEvaluations(nextEvaluations);
+    persistComparisonEvaluations(nextEvaluations);
+  }, [comparisonEvaluations, visibleSelectedComparisonCells]);
 
   function setComparisonSortKey(key: ComparisonSort['key']): void {
     setComparisonSort((current) => ({
@@ -545,6 +588,33 @@ export function StatsDashboardPage({
     if (comparisonSort?.key !== key) return '';
     return comparisonSort.direction === 'asc' ? ' ↑' : ' ↓';
   }
+
+  useEffect(() => {
+    function stopSelecting(): void {
+      isSelectingComparisonCellsRef.current = false;
+    }
+    window.addEventListener('mouseup', stopSelecting);
+    return () => window.removeEventListener('mouseup', stopSelecting);
+  }, []);
+
+  useEffect(() => {
+    function handleComparisonShortcut(event: KeyboardEvent): void {
+      if (viewMode !== 'comparison' || visibleSelectedComparisonCells.length === 0) return;
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable)) return;
+      const key = event.key.toLocaleLowerCase();
+      const status = key === 'g' ? 'green' : key === 'y' ? 'yellow' : key === 'r' ? 'red' : null;
+      if (status) {
+        event.preventDefault();
+        applyComparisonStatus(status);
+      } else if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        applyComparisonStatus(null);
+      }
+    }
+    window.addEventListener('keydown', handleComparisonShortcut);
+    return () => window.removeEventListener('keydown', handleComparisonShortcut);
+  }, [applyComparisonStatus, viewMode, visibleSelectedComparisonCells.length]);
 
   const submissions = Array.from(latestByMember.values()).filter(
     (submission): submission is StatSubmission => Boolean(submission),
@@ -610,7 +680,7 @@ export function StatsDashboardPage({
 
       {viewMode === 'comparison' && (
         <div className="comparison-customize-area">
-          <button type="button" className={`comparison-customize-trigger${isComparisonEditMode ? ' active' : ''}`} aria-pressed={isComparisonEditMode} onClick={() => { setIsComparisonEditMode((editing) => !editing); setIsStatPickerOpen(false); setColorPickerStatKey(null); }}>✎ {isComparisonEditMode ? 'เสร็จสิ้น' : 'จัดตาราง'}</button>
+          <button type="button" className={`comparison-customize-trigger${isComparisonEditMode ? ' active' : ''}`} aria-pressed={isComparisonEditMode} onClick={() => { setIsComparisonEditMode((editing) => !editing); setIsStatPickerOpen(false); }}>✎ {isComparisonEditMode ? 'เสร็จสิ้น' : 'จัดตาราง'}</button>
           <span>Layout: {selectedClass === 'all' ? 'ทุกอาชีพ' : selectedClass} · {comparisonColumns.length} columns</span>
           {isComparisonEditMode && (
             <div className="comparison-edit-actions">
@@ -641,6 +711,16 @@ export function StatsDashboardPage({
         </div>
       )}
 
+      {viewMode === 'comparison' && visibleSelectedComparisonCells.length > 0 && (
+        <div className="comparison-status-toolbar" role="toolbar" aria-label="กำหนดสถานะ Cell">
+          <strong>{visibleSelectedComparisonCells.length} cells</strong>
+          <button type="button" className="status-green" title="Shortcut: G" onClick={() => applyComparisonStatus('green')}>● ผ่าน</button>
+          <button type="button" className="status-yellow" title="Shortcut: Y" onClick={() => applyComparisonStatus('yellow')}>● กลาง</button>
+          <button type="button" className="status-red" title="Shortcut: R" onClick={() => applyComparisonStatus('red')}>● ไม่ผ่าน</button>
+          <button type="button" title="Shortcut: Delete / Backspace" onClick={() => applyComparisonStatus(null)}>○ ล้างสี</button>
+        </div>
+      )}
+
       {memberErrorMessage && (
         <section className="stats-dashboard-error"><span>{memberErrorMessage}</span><button type="button" onClick={() => void onReloadMembers()}>ลองใหม่</button></section>
       )}
@@ -668,32 +748,21 @@ export function StatsDashboardPage({
                 {comparisonColumns.map((key) => (
                   <th
                     key={key}
-                    className={`${comparisonLayout.columnColors[key] ? 'column-colored ' : ''}${draggedStatKey === key ? 'column-dragging ' : ''}${dropTargetStatKey === key && draggedStatKey !== key ? 'column-drop-target' : ''}`.trim() || undefined}
-                    style={comparisonColumnStyle(key)}
+                    className={`${draggedStatKey === key ? 'column-dragging ' : ''}${dropTargetStatKey === key && draggedStatKey !== key ? 'column-drop-target' : ''}`.trim() || undefined}
                     aria-sort={comparisonSort?.key === key ? (comparisonSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
                     onDragOver={(event) => { event.preventDefault(); setDropTargetStatKey(key); }}
                     onDrop={(event) => { event.preventDefault(); reorderComparisonColumn(key); setDraggedStatKey(null); setDropTargetStatKey(null); }}
                   >
                     {isComparisonEditMode && <span className="comparison-drag-handle" draggable role="button" tabIndex={0} aria-label={`ลากเพื่อจัดลำดับ ${getStatLabel(key)}`} title="ลากเพื่อจัดลำดับ" onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', key); setDraggedStatKey(key); }} onDragEnd={() => { setDraggedStatKey(null); setDropTargetStatKey(null); }}>⋮⋮</span>}
                     <button type="button" onClick={() => setComparisonSortKey(key)}>{getStatLabel(key)}{comparisonSortIndicator(key)}</button>
-                    {isComparisonEditMode && (
-                      <span className="comparison-header-actions">
-                        <button type="button" className="comparison-color-trigger" aria-label={`เลือกสี ${getStatLabel(key)}`} title="เลือกสี" onClick={() => setColorPickerStatKey((current) => current === key ? null : key)}>●</button>
-                        <button type="button" aria-label={`นำ ${getStatLabel(key)} ออก`} title="นำออก" disabled={comparisonColumns.length === 1} onClick={() => removeComparisonColumn(key)}>×</button>
-                      </span>
-                    )}
-                    {isComparisonEditMode && colorPickerStatKey === key && (
-                      <span className="comparison-color-palette">
-                        {COMPARISON_COLOR_OPTIONS.map((option) => <button type="button" key={option.value ?? 'none'} className={!option.value ? 'no-color' : ''} style={{ '--palette-color': option.hex } as CSSProperties} aria-label={option.label} title={option.label} onClick={() => setComparisonColumnColor(key, option.value)}>●</button>)}
-                      </span>
-                    )}
+                    {isComparisonEditMode && <span className="comparison-header-actions"><button type="button" aria-label={`นำ ${getStatLabel(key)} ออก`} title="นำออก" disabled={comparisonColumns.length === 1} onClick={() => removeComparisonColumn(key)}>×</button></span>}
                   </th>
                 ))}
                 <th className="comparison-action-column" aria-label="ดูรายละเอียด" />
               </tr>
             </thead>
             <tbody>
-              {comparisonMembers.map((member) => {
+              {comparisonMembers.map((member, rowIndex) => {
                 const submission = latestByMember.get(member.memberId) ?? null;
                 const memberClassName = memberClass(member);
                 const rowStyle = { '--member-class-color': getClassColor(memberClassName) } as CSSProperties;
@@ -705,9 +774,35 @@ export function StatsDashboardPage({
                         : member.ign}
                     </th>
                     <td className="comparison-class-column"><span className="stats-class-badge">{memberClassName}</span></td>
-                    {comparisonColumns.map((key) => (
-                      <td key={key} className={`comparison-stat-value${comparisonLayout.columnColors[key] ? ' column-colored' : ''}`} style={comparisonColumnStyle(key)}>{submission ? formatFocusStatValue(submission.stats, key) : '—'}</td>
-                    ))}
+                    {comparisonColumns.map((key, columnIndex) => {
+                      const cellId = comparisonCellId(member.memberId, key);
+                      const status = comparisonEvaluations[member.memberId]?.[key];
+                      const selected = selectedComparisonCells.has(cellId);
+                      const position = { row: rowIndex, column: columnIndex };
+                      return (
+                        <td
+                          key={key}
+                          className={`comparison-stat-value comparison-selectable-cell${status ? ` status-${status}` : ''}${selected ? ' selected' : ''}`}
+                          title={status ? `${status === 'green' ? 'ผ่าน' : status === 'yellow' ? 'กลาง / ควรดู' : 'ไม่ผ่าน / ต้องแก้'} (Manual)` : 'คลิกหรือลากเพื่อเลือก Cell'}
+                          aria-selected={selected}
+                          onMouseDown={(event) => {
+                            if (event.button !== 0) return;
+                            event.preventDefault();
+                            if (event.shiftKey && comparisonSelectionAnchorRef.current) {
+                              selectComparisonRange(comparisonSelectionAnchorRef.current, position);
+                              return;
+                            }
+                            comparisonSelectionAnchorRef.current = position;
+                            isSelectingComparisonCellsRef.current = true;
+                            setSelectedComparisonCells(new Set([cellId]));
+                          }}
+                          onMouseEnter={() => {
+                            if (isSelectingComparisonCellsRef.current && comparisonSelectionAnchorRef.current) selectComparisonRange(comparisonSelectionAnchorRef.current, position);
+                          }}
+                          onMouseUp={() => { isSelectingComparisonCellsRef.current = false; }}
+                        >{submission ? formatFocusStatValue(submission.stats, key) : '—'}</td>
+                      );
+                    })}
                     <td className="comparison-action-column">
                       {submission && <button type="button" aria-label={`ดูรายละเอียดของ ${member.ign}`} title="ดูรายละเอียด" onClick={() => setModalMember(member)}>›</button>}
                     </td>

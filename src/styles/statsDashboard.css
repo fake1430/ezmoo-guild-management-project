@@ -32,6 +32,12 @@
 .comparison-stat-groups section button { overflow: hidden; padding: 8px 10px; border: 1px solid #dbe4f0; border-radius: 8px; color: #334155; background: #f8fafc; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .comparison-stat-groups section button.added { color: #64748b; background: #e2e8f0; cursor: default; }
 .comparison-picker-empty { padding: 28px; color: #94a3b8; text-align: center; }
+.comparison-status-toolbar { position: sticky; z-index: 12; top: 10px; display: flex; width: fit-content; align-items: center; gap: 5px; justify-self: center; padding: 7px; border: 1px solid #cbd5e1; border-radius: 11px; background: rgb(255 255 255 / 96%); box-shadow: 0 8px 24px rgb(15 23 42 / 16%); backdrop-filter: blur(8px); }
+.comparison-status-toolbar strong { padding: 0 7px; color: #64748b; font-size: 11px; }
+.comparison-status-toolbar button { min-height: 32px; padding: 0 9px; border: 1px solid #dbe4f0; border-radius: 7px; color: #475569; background: #fff; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.comparison-status-toolbar .status-green { color: #15803d; background: #f0fdf4; }
+.comparison-status-toolbar .status-yellow { color: #a16207; background: #fefce8; }
+.comparison-status-toolbar .status-red { color: #b91c1c; background: #fff1f2; }
 .stats-dashboard-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid #fecaca; border-radius: 12px; color: #b91c1c; background: #fff7f7; }
 .stats-dashboard-error button, .member-stat-card > button { padding: 8px 12px; border: 0; border-radius: 8px; color: #fff; background: #334155; font-weight: 700; }
 .stats-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 14px; }
@@ -71,12 +77,14 @@
 .comparison-header-actions { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
 .stats-comparison-table thead .comparison-header-actions button { width: 22px; height: 22px; padding: 0; border-radius: 5px; color: #64748b; text-align: center; }
 .stats-comparison-table thead .comparison-header-actions button:disabled { opacity: .3; cursor: default; }
-.stats-comparison-table thead .comparison-color-trigger { color: var(--comparison-column-color, #94a3b8); }
-.comparison-color-palette { position: absolute; z-index: 8; top: calc(100% - 4px); right: 6px; display: grid; grid-template-columns: repeat(3, 28px); gap: 5px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; box-shadow: 0 10px 28px rgb(15 23 42 / 18%); }
-.stats-comparison-table thead .comparison-color-palette button { width: 28px; height: 28px; padding: 0; border: 1px solid color-mix(in srgb, var(--palette-color) 45%, #cbd5e1); border-radius: 7px; color: var(--palette-color); background: color-mix(in srgb, var(--palette-color) 16%, #fff); font-size: 18px; text-align: center; }
-.stats-comparison-table thead .comparison-color-palette button.no-color { color: #94a3b8; background: linear-gradient(135deg, #fff 45%, #ef4444 47%, #ef4444 53%, #fff 55%); }
-.stats-comparison-table thead th.column-colored { border-top: 4px solid var(--comparison-column-color); background: color-mix(in srgb, var(--comparison-column-color) 13%, #f8fafc); }
-.stats-comparison-table td.column-colored { background: color-mix(in srgb, var(--comparison-column-color) 5%, #fff); }
+.stats-comparison-table .comparison-selectable-cell { cursor: cell; user-select: none; }
+.stats-comparison-table .comparison-selectable-cell.status-green { background: #dcfce7; }
+.stats-comparison-table .comparison-selectable-cell.status-yellow { background: #fef9c3; }
+.stats-comparison-table .comparison-selectable-cell.status-red { background: #fee2e2; }
+.stats-comparison-table .comparison-selectable-cell.selected { position: relative; z-index: 1; box-shadow: inset 0 0 0 2px #2563eb; }
+.stats-comparison-table tbody tr:hover .comparison-selectable-cell.status-green { background: #d1fae5; }
+.stats-comparison-table tbody tr:hover .comparison-selectable-cell.status-yellow { background: #fef3c7; }
+.stats-comparison-table tbody tr:hover .comparison-selectable-cell.status-red { background: #fecaca; }
 .stats-comparison-table tbody tr:hover td, .stats-comparison-table tbody tr:hover th { background: #f8fafc; }
 .stats-comparison-table .comparison-ign-column { position: sticky; z-index: 2; left: 0; width: 190px; min-width: 190px; max-width: 190px; border-left: 3px solid var(--member-class-color, transparent); text-align: left; }
 .stats-comparison-table thead .comparison-ign-column { z-index: 5; border-left-color: transparent; background: #f1f5f9; }
