@@ -32,6 +32,12 @@ interface StatsDashboardPageProps {
 }
 
 type SortMode = 'name-asc' | 'name-desc' | 'updated-desc' | 'updated-asc';
+type ViewMode = 'card' | 'comparison';
+type ComparisonSortDirection = 'asc' | 'desc';
+interface ComparisonSort {
+  key: 'ign' | FocusStatKey;
+  direction: ComparisonSortDirection;
+}
 interface CardSummaryField { key: FocusStatKey; label: string }
 interface DraftCriterion {
   operator: StatCriterion['operator'];
@@ -99,6 +105,8 @@ export function StatsDashboardPage({
   const [searchText, setSearchText] = useState('');
   const [selectedClass, setSelectedClass] = useState('all');
   const [sortMode, setSortMode] = useState<SortMode>('name-asc');
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
+  const [comparisonSort, setComparisonSort] = useState<ComparisonSort | null>(null);
   const [onlyWithStats, setOnlyWithStats] = useState(true);
   const [latestByMember, setLatestByMember] = useState<Map<string, StatSubmission | null>>(new Map());
   const [focusConfigByClass, setFocusConfigByClass] = useState<Map<string, ClassFocusStatConfig>>(new Map());
@@ -387,6 +395,50 @@ export function StatsDashboardPage({
     });
   }, [latestByMember, members, onlyWithStats, searchText, selectedClass, sortMode]);
 
+  const comparisonMembers = useMemo(() => {
+    if (!comparisonSort) return filteredMembers;
+
+    return [...filteredMembers].sort((first, second) => {
+      let difference: number;
+      if (comparisonSort.key === 'ign') {
+        difference = first.ign.localeCompare(second.ign, 'th');
+      } else {
+        const firstSubmission = latestByMember.get(first.memberId);
+        const secondSubmission = latestByMember.get(second.memberId);
+        const firstValue = firstSubmission
+          ? getFocusStatValue(firstSubmission.stats, comparisonSort.key)
+          : undefined;
+        const secondValue = secondSubmission
+          ? getFocusStatValue(secondSubmission.stats, comparisonSort.key)
+          : undefined;
+
+        if (firstValue === undefined && secondValue === undefined) {
+          difference = first.ign.localeCompare(second.ign, 'th');
+        } else if (firstValue === undefined) {
+          return 1;
+        } else if (secondValue === undefined) {
+          return -1;
+        } else {
+          difference = firstValue - secondValue;
+        }
+      }
+
+      return comparisonSort.direction === 'asc' ? difference : -difference;
+    });
+  }, [comparisonSort, filteredMembers, latestByMember]);
+
+  function setComparisonSortKey(key: ComparisonSort['key']): void {
+    setComparisonSort((current) => ({
+      key,
+      direction: current?.key === key && current.direction === 'desc' ? 'asc' : 'desc',
+    }));
+  }
+
+  function comparisonSortIndicator(key: ComparisonSort['key']): string {
+    if (comparisonSort?.key !== key) return '';
+    return comparisonSort.direction === 'asc' ? ' ↑' : ' ↓';
+  }
+
   const submissions = Array.from(latestByMember.values()).filter(
     (submission): submission is StatSubmission => Boolean(submission),
   );
@@ -434,7 +486,7 @@ export function StatsDashboardPage({
           <option value="all">ทุกอาชีพ</option>
           {classOptions.map((className) => <option key={className} value={className}>{className}</option>)}
         </select>
-        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+        <select value={sortMode} onChange={(event) => { setSortMode(event.target.value as SortMode); setComparisonSort(null); }}>
           <option value="name-asc">A–Z</option><option value="name-desc">Z–A</option>
           <option value="updated-desc">อัปเดตล่าสุด</option><option value="updated-asc">อัปเดตเก่าสุด</option>
         </select>
@@ -443,6 +495,11 @@ export function StatsDashboardPage({
           เฉพาะคนที่มี Stat
         </label>
       </section>
+
+      <div className="stats-view-toggle" role="group" aria-label="รูปแบบการแสดงผล">
+        <button type="button" className={viewMode === 'card' ? 'active' : ''} aria-pressed={viewMode === 'card'} onClick={() => setViewMode('card')}>Card View</button>
+        <button type="button" className={viewMode === 'comparison' ? 'active' : ''} aria-pressed={viewMode === 'comparison'} onClick={() => setViewMode('comparison')}>Comparison View</button>
+      </div>
 
       {memberErrorMessage && (
         <section className="stats-dashboard-error"><span>{memberErrorMessage}</span><button type="button" onClick={() => void onReloadMembers()}>ลองใหม่</button></section>
@@ -458,6 +515,48 @@ export function StatsDashboardPage({
       ) : filteredMembers.length === 0 ? (
         <section className="stats-dashboard-empty">
           {submissions.length === 0 && onlyWithStats ? 'ยังไม่มีสมาชิกส่งข้อมูล Stat' : 'ไม่พบสมาชิกตามตัวกรอง'}
+        </section>
+      ) : viewMode === 'comparison' ? (
+        <section className="stats-comparison-shell" aria-label="ตารางเปรียบเทียบ Stat สมาชิก">
+          <table className="stats-comparison-table">
+            <thead>
+              <tr>
+                <th className="comparison-ign-column" aria-sort={comparisonSort?.key === 'ign' ? (comparisonSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button type="button" onClick={() => setComparisonSortKey('ign')}>IGN{comparisonSortIndicator('ign')}</button>
+                </th>
+                <th className="comparison-class-column">Class</th>
+                {STAT_OPTIONS.map(({ key, label }) => (
+                  <th key={key} aria-sort={comparisonSort?.key === key ? (comparisonSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => setComparisonSortKey(key)}>{label}{comparisonSortIndicator(key)}</button>
+                  </th>
+                ))}
+                <th className="comparison-action-column" aria-label="ดูรายละเอียด" />
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonMembers.map((member) => {
+                const submission = latestByMember.get(member.memberId) ?? null;
+                const memberClassName = memberClass(member);
+                const rowStyle = { '--member-class-color': getClassColor(memberClassName) } as CSSProperties;
+                return (
+                  <tr key={member.memberId} style={rowStyle}>
+                    <th className="comparison-ign-column" scope="row">
+                      {submission
+                        ? <button type="button" className="comparison-ign-button" onClick={() => setModalMember(member)}>{member.ign}</button>
+                        : member.ign}
+                    </th>
+                    <td className="comparison-class-column"><span className="stats-class-badge">{memberClassName}</span></td>
+                    {STAT_OPTIONS.map(({ key }) => (
+                      <td key={key} className="comparison-stat-value">{submission ? formatFocusStatValue(submission.stats, key) : '—'}</td>
+                    ))}
+                    <td className="comparison-action-column">
+                      {submission && <button type="button" aria-label={`ดูรายละเอียดของ ${member.ign}`} title="ดูรายละเอียด" onClick={() => setModalMember(member)}>›</button>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </section>
       ) : (
         <section className="stats-card-grid">

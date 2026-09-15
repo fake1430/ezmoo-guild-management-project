@@ -12,6 +12,9 @@
 .stats-dashboard-toolbar > input, .stats-dashboard-toolbar > select { min-height: 42px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; }
 .stats-only-toggle { display: flex; min-height: 42px; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .stats-only-toggle input { width: 16px; height: 16px; accent-color: #334155; }
+.stats-view-toggle { display: flex; width: fit-content; gap: 4px; padding: 4px; border: 1px solid #dbe4f0; border-radius: 11px; background: #f1f5f9; }
+.stats-view-toggle button { min-height: 34px; padding: 0 13px; border: 0; border-radius: 7px; color: #64748b; background: transparent; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+.stats-view-toggle button.active { color: #0f172a; background: #fff; box-shadow: 0 1px 4px rgb(15 23 42 / 12%); }
 .stats-dashboard-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid #fecaca; border-radius: 12px; color: #b91c1c; background: #fff7f7; }
 .stats-dashboard-error button, .member-stat-card > button { padding: 8px 12px; border: 0; border-radius: 8px; color: #fff; background: #334155; font-weight: 700; }
 .stats-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 14px; }
@@ -38,6 +41,23 @@
 .member-stat-card > button:hover, .member-stat-card > button:focus-visible { border-color: #1e293b; background: #1e293b; outline: none; }
 .member-stat-missing { display: grid; flex: 1; place-items: center; color: #94a3b8; font-size: 13px; }
 .stats-dashboard-empty { display: grid; min-height: 280px; place-items: center; padding: 30px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; background: #f8fafc; text-align: center; }
+.stats-comparison-shell { max-height: min(68vh, 760px); overflow: auto; border: 1px solid #dbe4f0; border-radius: 14px; background: #fff; box-shadow: 0 5px 16px rgb(15 23 42 / 5%); }
+.stats-comparison-table { width: max-content; min-width: 100%; border-spacing: 0; color: #334155; font-size: 13px; }
+.stats-comparison-table th, .stats-comparison-table td { min-width: 112px; height: 48px; padding: 9px 13px; border-right: 1px solid #edf1f5; border-bottom: 1px solid #e7edf4; background: #fff; white-space: nowrap; }
+.stats-comparison-table thead th { position: sticky; z-index: 3; top: 0; height: 46px; color: #475569; background: #f8fafc; font-size: 11px; font-weight: 800; letter-spacing: .025em; text-align: right; }
+.stats-comparison-table thead th button { width: 100%; padding: 5px 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: right; white-space: nowrap; cursor: pointer; }
+.stats-comparison-table tbody tr:hover td, .stats-comparison-table tbody tr:hover th { background: #f8fafc; }
+.stats-comparison-table .comparison-ign-column { position: sticky; z-index: 2; left: 0; min-width: 180px; max-width: 220px; border-left: 3px solid var(--member-class-color, transparent); text-align: left; }
+.stats-comparison-table thead .comparison-ign-column { z-index: 5; border-left-color: transparent; background: #f1f5f9; }
+.stats-comparison-table thead .comparison-ign-column button { text-align: left; }
+.comparison-ign-button { overflow: hidden; max-width: 190px; padding: 4px 0; border: 0; color: #0f172a; background: transparent; font: inherit; font-weight: 800; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.comparison-ign-button:hover, .comparison-ign-button:focus-visible { color: var(--member-class-color); text-decoration: underline; outline: none; }
+.stats-comparison-table .comparison-class-column { min-width: 145px; text-align: left; }
+.stats-comparison-table .comparison-class-column .stats-class-badge { display: inline-block; }
+.stats-comparison-table .comparison-stat-value { color: #0f172a; font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; }
+.stats-comparison-table .comparison-action-column { min-width: 50px; width: 50px; text-align: center; }
+.stats-comparison-table .comparison-action-column button { width: 28px; height: 28px; padding: 0; border: 1px solid #cbd5e1; border-radius: 7px; color: #475569; background: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+.stats-comparison-table .comparison-action-column button:hover { border-color: #64748b; color: #0f172a; }
 .stats-card-skeleton { min-height: 280px; cursor: default; background: linear-gradient(100deg, #f1f5f9 30%, #fff 50%, #f1f5f9 70%); background-size: 220% 100%; animation: stats-skeleton 1.4s infinite linear; }
 @keyframes stats-skeleton { to { background-position-x: -220%; } }
 .stat-modal-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(15 23 42 / 55%); }
