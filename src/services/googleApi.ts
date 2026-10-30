@@ -1,3 +1,4 @@
+import type { PartySheetName } from '../constants/partyModes';
 import type { Member } from '../types/member';
 import type { Party } from '../types/partyTypes';
 import type {
@@ -190,10 +191,7 @@ export function getMembers(forceRefresh = false): Promise<Member[]> {
 }
 
 export function getParties(
-  sheetName:
-    | 'GuildLeague'
-    | 'Overrun'
-    | 'AuctionParty',
+  sheetName: PartySheetName,
   forceRefresh = false,
 ): Promise<Party[]> {
   return request<Party[]>(
@@ -211,10 +209,7 @@ export function getParties(
 }
 
 export async function saveParties(
-  sheetName:
-    | 'GuildLeague'
-    | 'Overrun'
-    | 'AuctionParty',
+  sheetName: PartySheetName,
   parties: Party[],
 ): Promise<string> {
   const message = await postRequest({

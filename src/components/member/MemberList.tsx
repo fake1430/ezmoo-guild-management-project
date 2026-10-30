@@ -1,3 +1,4 @@
+import { memberClassForMode as getMemberClass } from '../../constants/partyModes';
 import type { DragEvent } from 'react';
 import type {
   Member,
@@ -11,20 +12,6 @@ interface MemberListProps {
   assignedMemberNames: Set<string>;
 }
 
-function getMemberClass(
-  member: Member,
-  mode: PartyMode,
-): string {
-  if (mode === 'guildLeague') {
-    return member.guildLeagueClass;
-  }
-
-  if (mode === 'overrun') {
-    return member.overrunClass;
-  }
-
-  return '';
-}
 
 function handleDragStart(
   event: DragEvent<HTMLElement>,

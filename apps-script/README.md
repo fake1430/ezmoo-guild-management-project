@@ -101,3 +101,10 @@ The deployed `statSubmissions.gs` must include `rawDef` and `rawMdef` in
 `FOCUS_STAT_KEYS`; otherwise saving those choices returns
 `Unknown focus stat key`. These keys belong only to Focus Stats config and must
 not be added to `CHARACTER_STAT_KEYS` or persisted in `statsJson`.
+
+
+## Party Builder: six modes
+
+Implementation and migration instructions: [party-builder-modes.md](party-builder-modes.md).
+No migration runs automatically. Update the existing Apps Script deployment manually
+before using the new modes on the published frontend.

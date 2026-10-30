@@ -1,3 +1,4 @@
+import { PARTY_MODES } from '../constants/partyModes';
 import { useCallback, useEffect, useState } from 'react';
 import { getParties } from '../services/googleApi';
 import type { PartyMode } from '../types/member';
@@ -27,12 +28,7 @@ export function useParties(
       setIsLoading(true);
       setErrorMessage('');
 
-  const sheetName =
-    mode === 'guildLeague'
-      ? 'GuildLeague'
-      : mode === 'overrun'
-        ? 'Overrun'
-        : 'AuctionParty';
+  const sheetName = PARTY_MODES[mode].sheet;
 
       const data = await getParties(sheetName, forceRefresh);
       setParties(data);

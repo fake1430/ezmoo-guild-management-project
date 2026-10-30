@@ -4,6 +4,9 @@ const SHEETS = {
   GUILD_LEAGUE: 'GuildLeague',
   OVERRUN: 'Overrun',
   AUCTION_PARTY: 'AuctionParty',
+  STELLAR_CLASH: 'StellarClash',
+  VALE_OF_CLASH: 'ValeOfClash',
+  VIGRID_AVENGE: 'VigridAvenge',
   GUILD_LEAGUE_AUCTION: 'GuildLeagueAuction',
   OVERRUN_AUCTION: 'OverrunAuction',
   ATTENDANCE: 'Attendance',
@@ -15,7 +18,7 @@ const SHEETS = {
 
 
 const OVERRUN_QUEUE_SIZE = 12;
-const MEMBERS_CACHE_KEY = 'api:members:v1';
+const MEMBERS_CACHE_KEY = 'api:members:v2';
 const MEMBERS_CACHE_TTL_SECONDS = 300;
 const PARTY_CACHE_TTL_SECONDS = 120;
 
@@ -382,6 +385,16 @@ function getMembers(forceRefresh) {
       'overrunclass',
     ]);
 
+  // New columns are optional during migration. Missing cells stay unassigned.
+  const optionalClassIndex = function (names) {
+    return headers.findIndex(function (header) {
+      return names.map(normalizeHeader).includes(header);
+    });
+  };
+  const stellarClashIndex = optionalClassIndex(['stellarClashClass', 'stellar clash class', 'stellar clash']);
+  const valeOfClashIndex = optionalClassIndex(['valeOfClashClass', 'vale of clash class', 'vale of clash']);
+  const vigridAvengeIndex = optionalClassIndex(['vigridAvengeClass', 'vigrid avenge class', 'vigrid avenge']);
+
   const members = values
     .slice(1)
     .filter(function (row) {
@@ -402,6 +415,10 @@ function getMembers(forceRefresh) {
         guildLeagueClass: String(
           row[guildLeagueIndex] || '',
         ).trim(),
+
+        stellarClashClass: String(row[stellarClashIndex] || '').trim(),
+        valeOfClashClass: String(row[valeOfClashIndex] || '').trim(),
+        vigridAvengeClass: String(row[vigridAvengeIndex] || '').trim(),
 
         overrunClass: String(
           row[overrunIndex] || '',
@@ -656,13 +673,16 @@ const allowedSheets = [
   SHEETS.GUILD_LEAGUE,
   SHEETS.OVERRUN,
   SHEETS.AUCTION_PARTY,
+  SHEETS.STELLAR_CLASH,
+  SHEETS.VALE_OF_CLASH,
+  SHEETS.VIGRID_AVENGE,
 ];
 
   if (
     !allowedSheets.includes(sheetName)
   ) {
 throw new Error(
-  'อนุญาตเฉพาะ GuildLeague, Overrun หรือ AuctionParty',
+  'ไม่อนุญาตชีต Party Builder: ' + sheetName,
 );
   }
 }

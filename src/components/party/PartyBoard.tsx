@@ -1,3 +1,4 @@
+import { memberClassForMode } from '../../constants/partyModes';
 import {
   useRef,
   useState,
@@ -13,6 +14,10 @@ import type { Party } from '../../types/partyTypes';
 import { getClassColor } from '../../constants/classColors';
 
 interface PartyBoardProps {
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   modeLabel: string;
   members: Member[];
   mode: PartyMode;
@@ -73,18 +78,11 @@ function getMemberClass(
     return '';
   }
 
-  if (mode === 'guildLeague') {
-    return member.guildLeagueClass;
-  }
-
-  if (mode === 'overrun') {
-    return member.overrunClass;
-  }
-
-  return '';
+  return memberClassForMode(member, mode);
 }
 
 export function PartyBoard({
+  onUndo, onRedo, canUndo, canRedo,
   modeLabel,
   members,
   mode,
@@ -362,7 +360,7 @@ function handleMemberDragLeave(
     onClearParty(partyIndex);
   }
 
-  async function handleCopyRaidImage(): Promise<void> {
+  async function handleCopyRaidImage(download = false): Promise<void> {
     const captureElement = captureAreaRef.current;
 
     if (!captureElement) {
@@ -380,6 +378,16 @@ function handleMemberDragLeave(
 
       if (!blob) {
         throw new Error('สร้างภาพไม่สำเร็จ');
+      }
+
+      if (download) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `EZMOO-${modeLabel.replaceAll(' ', '-')}-Party.png`;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return;
       }
 
       if (
@@ -410,10 +418,7 @@ function handleMemberDragLeave(
         setCopied(false);
       }, 2000);
     } catch (error) {
-      console.error(
-        'ไม่สามารถคัดลอกรูปภาพได้',
-        error,
-      );
+      window.alert(error instanceof Error ? error.message : 'สร้างภาพไม่สำเร็จ');
     } finally {
       setIsCapturing(false);
     }
@@ -686,6 +691,13 @@ function handleMemberDragLeave(
         </div>
 
         <div className="party-toolbar-actions">
+          <button type="button" className="toolbar-button" onClick={onUndo} disabled={!canUndo}>Undo</button>
+          <button type="button" className="toolbar-button" onClick={onRedo} disabled={!canRedo}>Redo</button>
+          <button type="button" className="toolbar-button capture-button"
+            onClick={() => void handleCopyRaidImage(true)}
+            disabled={isCapturing || isLoading || Boolean(errorMessage) || !parties.length}>
+            ดาวน์โหลดภาพ {modeLabel}
+          </button>
           <button
             type="button"
             className="toolbar-button"
@@ -694,7 +706,7 @@ function handleMemberDragLeave(
           >
             {isLoading
               ? 'กำลังโหลด...'
-              : 'โหลดใหม่'}
+              : `โหลด ${modeLabel}`}
           </button>
 
           <button
@@ -702,12 +714,12 @@ function handleMemberDragLeave(
             className="toolbar-button save-button"
             onClick={() => void onSave()}
             disabled={
-              isLoading || isSaving
+              isLoading || isSaving || Boolean(errorMessage)
             }
           >
             {isSaving
               ? 'กำลังบันทึก...'
-              : 'บันทึก'}
+              : `บันทึก ${modeLabel}`}
           </button>
 
           <button
@@ -717,7 +729,7 @@ function handleMemberDragLeave(
               void handleCopyRaidImage()
             }
             disabled={
-              isCapturing || isLoading
+              isCapturing || isLoading || Boolean(errorMessage) || !parties.length
             }
           >
             {isCapturing
@@ -731,7 +743,7 @@ function handleMemberDragLeave(
             type="button"
             className="toolbar-button add-button"
             onClick={onAddParty}
-            disabled={parties.length >= 16}
+            disabled={isLoading || Boolean(errorMessage) || parties.length >= 16}
           >
             + เพิ่มปาร์ตี้
           </button>
@@ -740,7 +752,7 @@ function handleMemberDragLeave(
             type="button"
             className="toolbar-button danger-outline-button"
             onClick={onClearAll}
-            disabled={parties.length === 0}
+            disabled={isLoading || Boolean(errorMessage) || parties.length === 0}
           >
             ล้างทั้งหมด
           </button>
@@ -798,6 +810,7 @@ function handleMemberDragLeave(
             ref={captureAreaRef}
             className="compact-raid-grid capture-area"
           >
+            <h2 className="party-capture-title">{boardTitle}</h2>
             {renderRaidColumn({
               title: isAuctionParty
                 ? 'Party 1–8'

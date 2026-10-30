@@ -6,9 +6,9 @@ import {
 import { MemberPanel } from './components/member/MemberPanel';
 import { PartyBoard } from './components/party/PartyBoard';
 import { useMembers } from './hooks/useMembers';
-import { useParties } from './hooks/useParties';
+import { usePartyBuilder } from './hooks/usePartyBuilder';
+import { PARTY_MODES } from './constants/partyModes';
 import type { PartyMode } from './types/member';
-import type { Party } from './types/partyTypes';
 import { saveParties } from './services/googleApi';
 import { AttendancePage } from './components/attendance/AttendancePage';
 import { AuctionPage } from './components/auction/AuctionPage';
@@ -46,10 +46,14 @@ function App() {
   const [isSaving, setIsSaving] =
     useState(false);
 
-  const [
-    editableParties,
-    setEditableParties,
-  ] = useState<Party[]>([]);
+  const {
+    parties: editableParties,
+    setParties: setEditableParties,
+    isLoading: isLoadingParties,
+    errorMessage: partyErrorMessage,
+    reloadParties,
+    undo, redo, canUndo, canRedo,
+  } = usePartyBuilder(mode, isPartyPage);
 
   const assignedMemberNames = useMemo(() => {
     return new Set(
@@ -69,27 +73,6 @@ function App() {
     errorMessage: memberErrorMessage,
     reloadMembers,
   } = useMembers();
-
-  const {
-    parties,
-    isLoading: isLoadingParties,
-    errorMessage: partyErrorMessage,
-    reloadParties,
-  } = useParties(mode, isPartyPage);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditableParties(
-      parties.map((party) => ({
-        ...party,
-        slots: Array.from(
-          { length: 5 },
-          (_, index) =>
-            party.slots[index] ?? '',
-        ),
-      })),
-    );
-  }, [parties]);
 
   useEffect(() => {
     function handlePopState(): void {
@@ -119,12 +102,7 @@ function App() {
     setCurrentPage(page);
   }
 
-  const modeLabel =
-    mode === 'guildLeague'
-      ? 'Guild League'
-      : mode === 'overrun'
-        ? 'Overrun'
-        : 'Auction Party';
+  const modeLabel = PARTY_MODES[mode].label;
 
   function handleAddParty(): void {
     setEditableParties(
@@ -336,12 +314,7 @@ function App() {
     try {
       setIsSaving(true);
 
-      const sheetName =
-        mode === 'guildLeague'
-          ? 'GuildLeague'
-          : mode === 'overrun'
-            ? 'Overrun'
-            : 'AuctionParty';
+      const sheetName = PARTY_MODES[mode].sheet;
 
       const message =
         await saveParties(
@@ -569,51 +542,15 @@ function App() {
 
       {isPartyPage && (
         <>
-          <nav className="mode-selector">
-            <button
-              type="button"
-              className={
-                mode ===
-                'guildLeague'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() =>
-                setMode(
-                  'guildLeague',
-                )
-              }
-            >
-              Guild League
-            </button>
-
-            <button
-              type="button"
-              className={
-                mode === 'overrun'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() =>
-                setMode('overrun')
-              }
-            >
-              Overrun
-            </button>
-
-            <button
-              type="button"
-              className={
-                mode === 'auctionParty'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() =>
-                setMode('auctionParty')
-              }
-            >
-              Auction Party
-            </button>
+          <nav className="mode-selector" aria-label="Party Builder mode">
+            {(Object.keys(PARTY_MODES) as PartyMode[]).map((partyMode) => (
+              <button key={partyMode} type="button"
+                className={mode === partyMode ? 'active' : ''}
+                aria-pressed={mode === partyMode}
+                onClick={() => setMode(partyMode)}>
+                {PARTY_MODES[partyMode].label}
+              </button>
+            ))}
           </nav>
 
           {memberErrorMessage && (
@@ -636,6 +573,9 @@ function App() {
           {!memberErrorMessage && (
             <main className="workspace">
               <PartyBoard
+                key={mode}
+                onUndo={undo} onRedo={redo}
+                canUndo={canUndo} canRedo={canRedo}
                 modeLabel={modeLabel}
                 members={members}
                 mode={mode}
@@ -679,6 +619,7 @@ function App() {
               />
 
               <MemberPanel
+                key={mode}
                 members={members}
                 mode={mode}
                 assignedMemberNames={

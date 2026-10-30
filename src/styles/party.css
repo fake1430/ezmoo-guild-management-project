@@ -984,3 +984,10 @@
   text-align: center;
   pointer-events: none;
 }
+
+.party-capture-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px;
+  color: #334155;
+}

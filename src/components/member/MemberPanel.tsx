@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memberClassForMode as getMemberClass } from '../../constants/partyModes';
+import { useMemo, useState } from 'react';
 import type { Member, PartyMode } from '../../types/member';
 import { MemberList } from './MemberList';
 
@@ -38,20 +39,6 @@ const CLASS_ORDER = [
   'Doram',
 ];
 
-function getMemberClass(
-  member: Member,
-  mode: PartyMode,
-): string {
-  if (mode === 'guildLeague') {
-    return member.guildLeagueClass;
-  }
-
-  if (mode === 'overrun') {
-    return member.overrunClass;
-  }
-
-  return '';
-}
 
 export function MemberPanel({
   members,
@@ -59,6 +46,7 @@ export function MemberPanel({
   assignedMemberNames,
   onRemoveMemberFromParty,
 }: MemberPanelProps) {
+  const [sortBy, setSortBy] = useState<'class' | 'name'>('class');
   const [searchText, setSearchText] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
 
@@ -93,10 +81,6 @@ export function MemberPanel({
     });
   }, [members, mode]);
 
-  useEffect(() => {
-    setSelectedClass('');
-  }, [mode]);
-
   const filteredMembers = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
 
@@ -115,6 +99,7 @@ export function MemberPanel({
         return matchesName && matchesClass;
       })
       .sort((a, b) => {
+        if (sortBy === 'name') return a.ign.localeCompare(b.ign, 'en', { sensitivity: 'base' });
         const classA = getMemberClass(a, mode);
         const classB = getMemberClass(b, mode);
 
@@ -133,6 +118,8 @@ export function MemberPanel({
           return orderA - orderB;
         }
 
+        if (orderA === -1 && classA !== classB) return classA.localeCompare(classB);
+
         return a.ign.localeCompare(
           b.ign,
           'en',
@@ -141,7 +128,7 @@ export function MemberPanel({
           },
         );
       });
-  }, [members, mode, searchText, selectedClass]);
+  }, [members, mode, searchText, selectedClass, sortBy]);
 
   return (
     <aside
@@ -175,6 +162,11 @@ export function MemberPanel({
       </div>
 
       <div className="member-filters">
+        <select aria-label="เรียงสมาชิก" value={sortBy}
+          onChange={event => setSortBy(event.target.value as 'class' | 'name')}>
+          <option value="class">เรียงตามอาชีพ</option>
+          <option value="name">เรียงตามชื่อ</option>
+        </select>
         <input
           type="search"
           value={searchText}
