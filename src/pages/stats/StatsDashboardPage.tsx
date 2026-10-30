@@ -88,6 +88,63 @@ function latestTime(submission: StatSubmission | null): number {
   return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
+function sortMembersByToolbar(
+  source: Member[],
+  sortMode: SortMode,
+  latestByMember: Map<string, StatSubmission | null>,
+): Member[] {
+  return [...source].sort((first, second) => {
+    if (sortMode === 'name-desc') return second.ign.localeCompare(first.ign, 'th');
+    if (sortMode === 'updated-desc' || sortMode === 'updated-asc') {
+      const difference = latestTime(latestByMember.get(first.memberId) ?? null)
+        - latestTime(latestByMember.get(second.memberId) ?? null);
+      return sortMode === 'updated-desc' ? -difference : difference;
+    }
+    return first.ign.localeCompare(second.ign, 'th');
+  });
+}
+
+function sortMembersByComparisonColumn(
+  source: Member[],
+  comparisonSort: ComparisonSort | null,
+  latestByMember: Map<string, StatSubmission | null>,
+): Member[] {
+  if (!comparisonSort) return source;
+  return [...source].sort((first, second) => {
+    let difference: number;
+    if (comparisonSort.key === 'ign') {
+      difference = first.ign.localeCompare(second.ign, 'th');
+    } else {
+      const firstSubmission = latestByMember.get(first.memberId);
+      const secondSubmission = latestByMember.get(second.memberId);
+      const firstValue = firstSubmission
+        ? getFocusStatValue(firstSubmission.stats, comparisonSort.key)
+        : undefined;
+      const secondValue = secondSubmission
+        ? getFocusStatValue(secondSubmission.stats, comparisonSort.key)
+        : undefined;
+      if (firstValue === undefined && secondValue === undefined) {
+        difference = first.ign.localeCompare(second.ign, 'th');
+      } else if (firstValue === undefined) {
+        return 1;
+      } else if (secondValue === undefined) {
+        return -1;
+      } else {
+        difference = firstValue - secondValue;
+      }
+    }
+    return comparisonSort.direction === 'asc' ? difference : -difference;
+  });
+}
+
+function comparisonCaptureDate(): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 function attackSummary(submission: StatSubmission): CardSummaryField {
   const key = (submission.stats.matk ?? 0) > (submission.stats.patk ?? 0)
     ? 'matk'
@@ -146,6 +203,8 @@ export function StatsDashboardPage({
       return {};
     }
   });
+  const [isCapturingComparison, setIsCapturingComparison] = useState(false);
+  const [comparisonCaptureMessage, setComparisonCaptureMessage] = useState('');
   const [onlyWithStats, setOnlyWithStats] = useState(true);
   const [latestByMember, setLatestByMember] = useState<Map<string, StatSubmission | null>>(new Map());
   const [focusConfigByClass, setFocusConfigByClass] = useState<Map<string, ClassFocusStatConfig>>(new Map());
@@ -165,6 +224,7 @@ export function StatsDashboardPage({
   const [dashboardNow] = useState(() => Date.now());
   const loadGenerationRef = useRef(0);
   const criteriaCaptureRef = useRef<HTMLDivElement>(null);
+  const comparisonCaptureRef = useRef<HTMLDivElement>(null);
   const comparisonSelectionAnchorRef = useRef<ComparisonCellPosition | null>(null);
   const isSelectingComparisonCellsRef = useRef(false);
 
@@ -297,6 +357,61 @@ export function StatsDashboardPage({
     }
   }
 
+  async function captureClassComparison(): Promise<void> {
+    if (selectedClass === 'all') {
+      setComparisonCaptureMessage('กรุณาเลือกอาชีพก่อนสร้าง Screenshot');
+      return;
+    }
+    if (!comparisonCaptureRef.current || comparisonCaptureMembers.length === 0) {
+      setComparisonCaptureMessage('ไม่พบสมาชิกในอาชีพที่เลือก');
+      return;
+    }
+
+    setIsCapturingComparison(true);
+    setComparisonCaptureMessage('');
+    try {
+      await document.fonts.ready;
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      const captureElement = comparisonCaptureRef.current;
+      const width = Math.ceil(captureElement.scrollWidth);
+      const height = Math.ceil(captureElement.scrollHeight);
+      const maxDimension = 30_000;
+      if (width < 1 || height < 1 || width > maxDimension || height > maxDimension) {
+        throw new Error('ตารางมีขนาดใหญ่เกินขีดจำกัดการสร้างภาพของ Browser');
+      }
+      const pixelRatio = Math.max(1, Math.min(
+        2,
+        maxDimension / width,
+        maxDimension / height,
+        Math.sqrt(32_000_000 / (width * height)),
+      ));
+      const blob = await toBlob(captureElement, {
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+        pixelRatio,
+        width,
+        height,
+      });
+      if (!blob) throw new Error('Browser ไม่สามารถสร้างไฟล์ PNG ได้');
+
+      const safeClassName = selectedClass.replace(/[^a-zA-Z0-9_-]+/g, '_');
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `EZMOO_${safeClassName}_Comparison_${comparisonCaptureDate()}.png`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      setComparisonCaptureMessage(`ดาวน์โหลดภาพ ${comparisonCaptureMembers.length} คนแล้ว`);
+    } catch (error) {
+      setComparisonCaptureMessage(
+        error instanceof Error ? `สร้าง Screenshot ไม่สำเร็จ: ${error.message}` : 'สร้าง Screenshot ไม่สำเร็จ',
+      );
+    } finally {
+      setIsCapturingComparison(false);
+    }
+  }
+
   function openFocusConfig(): void {
     const initialClass = selectedClass !== 'all'
       ? selectedClass
@@ -425,48 +540,19 @@ export function StatsDashboardPage({
         && (!onlyWithStats || Boolean(submission));
     });
 
-    return result.sort((first, second) => {
-      if (sortMode === 'name-desc') return second.ign.localeCompare(first.ign, 'th');
-      if (sortMode === 'updated-desc' || sortMode === 'updated-asc') {
-        const difference = latestTime(latestByMember.get(first.memberId) ?? null)
-          - latestTime(latestByMember.get(second.memberId) ?? null);
-        return sortMode === 'updated-desc' ? -difference : difference;
-      }
-      return first.ign.localeCompare(second.ign, 'th');
-    });
+    return sortMembersByToolbar(result, sortMode, latestByMember);
   }, [latestByMember, members, onlyWithStats, searchText, selectedClass, sortMode]);
 
-  const comparisonMembers = useMemo(() => {
-    if (!comparisonSort) return filteredMembers;
+  const comparisonMembers = useMemo(() => (
+    sortMembersByComparisonColumn(filteredMembers, comparisonSort, latestByMember)
+  ), [comparisonSort, filteredMembers, latestByMember]);
 
-    return [...filteredMembers].sort((first, second) => {
-      let difference: number;
-      if (comparisonSort.key === 'ign') {
-        difference = first.ign.localeCompare(second.ign, 'th');
-      } else {
-        const firstSubmission = latestByMember.get(first.memberId);
-        const secondSubmission = latestByMember.get(second.memberId);
-        const firstValue = firstSubmission
-          ? getFocusStatValue(firstSubmission.stats, comparisonSort.key)
-          : undefined;
-        const secondValue = secondSubmission
-          ? getFocusStatValue(secondSubmission.stats, comparisonSort.key)
-          : undefined;
-
-        if (firstValue === undefined && secondValue === undefined) {
-          difference = first.ign.localeCompare(second.ign, 'th');
-        } else if (firstValue === undefined) {
-          return 1;
-        } else if (secondValue === undefined) {
-          return -1;
-        } else {
-          difference = firstValue - secondValue;
-        }
-      }
-
-      return comparisonSort.direction === 'asc' ? difference : -difference;
-    });
-  }, [comparisonSort, filteredMembers, latestByMember]);
+  const comparisonCaptureMembers = (() => {
+    if (selectedClass === 'all') return [];
+    const classMembers = members.filter((member) => memberClass(member) === selectedClass);
+    const toolbarSorted = sortMembersByToolbar(classMembers, sortMode, latestByMember);
+    return sortMembersByComparisonColumn(toolbarSorted, comparisonSort, latestByMember);
+  })();
 
   const comparisonLayoutKey = getComparisonLayoutKey(selectedClass);
   const comparisonLayout = comparisonLayouts[comparisonLayoutKey]
@@ -682,6 +768,11 @@ export function StatsDashboardPage({
         <div className="comparison-customize-area">
           <button type="button" className={`comparison-customize-trigger${isComparisonEditMode ? ' active' : ''}`} aria-pressed={isComparisonEditMode} onClick={() => { setIsComparisonEditMode((editing) => !editing); setIsStatPickerOpen(false); }}>✎ {isComparisonEditMode ? 'เสร็จสิ้น' : 'จัดตาราง'}</button>
           <span>Layout: {selectedClass === 'all' ? 'ทุกอาชีพ' : selectedClass} · {comparisonColumns.length} columns</span>
+          {selectedClass !== 'all' && (
+            <button type="button" className="comparison-screenshot-button" disabled={loadingDashboard || isCapturingComparison || comparisonCaptureMembers.length === 0} onClick={() => void captureClassComparison()}>
+              {isCapturingComparison ? 'กำลังสร้าง PNG...' : `📷 Screenshot ${selectedClass}`}
+            </button>
+          )}
           {isComparisonEditMode && (
             <div className="comparison-edit-actions">
               <button type="button" onClick={() => setIsStatPickerOpen((open) => !open)}>+ เพิ่ม Stat</button>
@@ -708,6 +799,7 @@ export function StatsDashboardPage({
               </div>
             </section>
           )}
+          {comparisonCaptureMessage && <span className="comparison-capture-message" role="status">{comparisonCaptureMessage}</span>}
         </div>
       )}
 
@@ -894,6 +986,48 @@ export function StatsDashboardPage({
             );
           })}
         </section>
+      )}
+
+      {viewMode === 'comparison' && selectedClass !== 'all' && comparisonCaptureMembers.length > 0 && (
+        <div className="comparison-capture-offscreen" aria-hidden="true">
+          <section
+            ref={comparisonCaptureRef}
+            className="comparison-capture-card"
+            style={{ '--capture-class-color': getClassColor(selectedClass) } as CSSProperties}
+          >
+            <header className="comparison-capture-header">
+              <div><span>EZMOO Guild</span><h2>{selectedClass} Comparison</h2></div>
+              <dl>
+                <div><dt>รอบข้อมูล</dt><dd>Latest Stat</dd></div>
+                <div><dt>สมาชิก</dt><dd>{comparisonCaptureMembers.length} คน</dd></div>
+                <div><dt>วันที่สร้าง</dt><dd>{comparisonCaptureDate()}</dd></div>
+              </dl>
+            </header>
+            <table className="stats-comparison-table comparison-capture-table">
+              <thead><tr>
+                <th className="comparison-ign-column">IGN{comparisonSortIndicator('ign')}</th>
+                <th className="comparison-class-column">Class</th>
+                {comparisonColumns.map((key) => <th key={key}>{getStatLabel(key)}{comparisonSortIndicator(key)}</th>)}
+              </tr></thead>
+              <tbody>
+                {comparisonCaptureMembers.map((member) => {
+                  const submission = latestByMember.get(member.memberId) ?? null;
+                  const className = memberClass(member);
+                  return (
+                    <tr key={member.memberId} style={{ '--member-class-color': getClassColor(className) } as CSSProperties}>
+                      <th className="comparison-ign-column" scope="row">{member.ign}</th>
+                      <td className="comparison-class-column"><span className="stats-class-badge">{className}</span></td>
+                      {comparisonColumns.map((key) => {
+                        const status = comparisonEvaluations[member.memberId]?.[key];
+                        return <td key={key} className={`comparison-stat-value${status ? ` status-${status}` : ''}`}>{submission ? formatFocusStatValue(submission.stats, key) : '—'}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
+        </div>
       )}
 
       {modalMember && modalSubmission && (
