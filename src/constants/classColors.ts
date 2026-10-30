@@ -1,6 +1,6 @@
 export const CLASS_COLORS: Record<string, string> = {
   Knight: '#ef4444',
-  Paladin: '#f43f5e',
+  Paladin: '#b91c1c',
   Priest: '#22c55e',
   Monk: '#14b8a6',
   Wizard: '#0ea5e9',
