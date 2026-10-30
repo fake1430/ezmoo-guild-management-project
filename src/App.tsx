@@ -397,7 +397,7 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className={isPartyPage ? 'app party-builder-page' : 'app'}>
       <header className="app-header">
         <div className="brand">
           <div className="brand-logo">
@@ -573,7 +573,7 @@ function App() {
           {!memberErrorMessage && (
             <main className="workspace">
               <PartyBoard
-                key={mode}
+                key={`board-${mode}`}
                 onUndo={undo} onRedo={redo}
                 canUndo={canUndo} canRedo={canRedo}
                 modeLabel={modeLabel}
@@ -619,7 +619,7 @@ function App() {
               />
 
               <MemberPanel
-                key={mode}
+                key={`members-${mode}`}
                 members={members}
                 mode={mode}
                 assignedMemberNames={

@@ -748,10 +748,6 @@
     min-height: 100%;
   }
 }
-.workspace {
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 12px;
-}
 
 .compact-raid-grid {
   gap: 12px;
@@ -870,9 +866,15 @@
   width: min(1800px, calc(100% - 24px));
 }
 
-.workspace {
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 10px;
+@media (min-width: 901px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 10px;
+  }
+}
+
+.party-builder-page > .main-navigation {
+  flex-wrap: wrap;
 }
 
 .party-board {

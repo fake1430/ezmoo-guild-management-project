@@ -72,7 +72,7 @@
 - Apps Script บันทึกชีตหนึ่งโดยชีตโหมดอื่นและข้อมูลสมาชิกไม่เปลี่ยน
 - Screenshot handlers: พื้นที่ภาพมีชื่อโหมด, ชื่อไฟล์ PNG ถูกต้อง, เรียกเส้นทาง download/clipboard ครบทุกโหมด
 
-ชุดทดสอบใช้ข้อมูลจำลองเท่านั้น ไม่ใช่การยืนยัน Google deployment จริงหรือการ render PNG ในเบราว์เซอร์จริง
+ชุดทดสอบใช้ข้อมูลจำลองเท่านั้น ไม่ใช่การยืนยัน Google deployment จริงหรือการ render PNG ในเบราว์เซอร์จริง (มีการทดสอบ DOM/layout ใน Chrome จริงเพิ่มเติมตามหัวข้อด้านล่าง)
 หลัง deploy ให้ตรวจบนเบราว์เซอร์กับข้อมูลจริง: สลับครบ 6 โหมด, ตรวจอาชีพจากแถวสมาชิกจริง, ลาก/swap/remove/undo/redo/clear, Save แล้วโหลดเฉพาะโหมด, ตรวจทุกชีตอื่นว่ายังคงเดิม และเปิดภาพดาวน์โหลด/วาง clipboard เพื่อตรวจรูปกับชื่อโหมด รวมทั้ง layout ของแท็บบนจอแคบ
 
 
@@ -96,3 +96,20 @@
 
 ไม่ได้แก้ implementation ของ Auction, Attendance, War Planner หรือ Member Stats
 Lint เฉพาะไฟล์ TypeScript/TSX และ test ที่แก้ผ่าน; lint ทั้ง repository ยังมีข้อผิดพลาดเดิมในไฟล์นอกขอบเขตงานนี้
+
+
+## แก้บอร์ดซ้ำหลังสลับโหมด
+
+Root cause: `PartyBoard` และ `MemberPanel` อยู่ใต้ workspace เดียวกันแต่เคยใช้ `key={mode}` ซ้ำกัน React reconciliation จึงจับคู่ sibling ผิดหลังเปลี่ยน key เมื่อสลับโหมด และอาจเหลือ DOM ของบอร์ดเก่าไว้ในคอลัมน์หลัก ขณะที่บอร์ดใหม่ถูกแทรกในคอลัมน์แคบ
+แก้เป็น `board-${mode}` และ `members-${mode}` เพื่อให้ React unmount/mount component ถูกชุด ไม่ซ่อน DOM ด้วย CSS และไม่เปลี่ยน draft/history หรือ Save/Load
+
+CSS `.workspace` ตอนท้าย party.css เคยทับ media query จอเล็กใน base.css แก้โดยจำกัดกฎสองคอลัมน์ไว้ที่ min-width 901px และให้ navigation wrap เฉพาะหน้า Party Builder เพื่อไม่ล้นที่ขนาดแท็บเล็ต ไม่เปลี่ยนหน้าระบบอื่น
+
+Regression tests เพิ่มเติม:
+
+- `node scripts/party-builder.test.mjs` ตรวจ sibling keys ไม่ซ้ำ มีบอร์ด/MemberPanel อย่างละหนึ่งและ props mode ตรงกัน พร้อมชุดทดสอบ draft/history/save/load เดิม
+- `node scripts/party-builder.browser.test.mjs` เปิด Vite และ Chrome headless profile ชั่วคราว ใช้ React/DOM/CSS จริงและ mock fetch ทุกครั้ง ไม่เข้าถึง API จริง ต้องมี Google Chrome (Windows default path หรือกำหนด CHROME_PATH)
+- Browser fixture อยู่ที่ `scripts/fixtures/party-builder.browser.tsx` และไม่ได้รวมเข้า production build
+- ทดสอบทั้ง 6 โหมดหลายรอบที่ 1440, 1024, 901, 900, 768 และ 390px ตรวจบอร์ด/toolbar/MemberPanel อย่างละหนึ่ง, Raid A/B ฝั่งละ 8 ทีม ทีมละ 5 ช่อง, อาชีพตามโหมด, draft และ Undo/Redo ของ Guild League/Overrun, ไม่มี React errors/ช่องทับกัน/หน้าล้นแนวนอน
+
+ไม่ต้องเปลี่ยน Google Sheets หรือ deploy Apps Script เพิ่มสำหรับการแก้บอร์ดซ้ำนี้ อัปเดต frontend ตามกระบวนการ deploy เดิมด้วยตนเอง

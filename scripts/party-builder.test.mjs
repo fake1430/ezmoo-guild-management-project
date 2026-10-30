@@ -7,7 +7,7 @@ import ts from 'typescript';
 // Run the actual App event handlers and hook in a deterministic React harness.
 // No requests reach Google and no production data is read or written.
 let cells = [], cursor = 0, effects = [], tree;
-const jsx = (type, props) => ({ type, props });
+const jsx = (type, props, key) => ({ type, props, key });
 const react = {
   useState(initial) {
     const index = cursor++;
@@ -75,7 +75,18 @@ assert.equal(modes.length, 6);
 assert.equal(new Set(modes.map(mode => PARTY_MODES[mode].sheet)).size, 6);
 for (const mode of modes) remote.set(PARTY_MODES[mode].sheet, [{ party: 1, slots: ['', '', '', '', ''] }]);
 const App = load('src/App.tsx').default;
-function render() { cursor = 0; tree = App(); const jobs = effects; effects = []; jobs.forEach(fn => fn()); return tree; }
+function render() {
+  cursor = 0; tree = App();
+  const nodes = all(tree);
+  const workspace = nodes.find(node => node.props?.className === 'workspace');
+  if (workspace) {
+    const children = workspace.props.children.filter(Boolean);
+    assert.equal(children.filter(node => node.type === 'PartyBoard').length, 1);
+    assert.equal(children.filter(node => node.type === 'MemberPanel').length, 1);
+    assert.equal(new Set(children.map(node => node.key)).size, children.length, 'Workspace siblings must have distinct keys for React reconciliation');
+    assert.equal(children[0].props.mode, children[1].props.mode);
+  }
+  const jobs = effects; effects = []; jobs.forEach(fn => fn()); return tree; }
 async function settle() { for (let i = 0; i < 4; i++) { await Promise.resolve(); render(); } }
 function board() { return all(tree).find(node => node.type === 'PartyBoard').props; }
 function modeButton(mode) {
